@@ -69,6 +69,10 @@ pub struct Build {
     #[serde(default)]
     pub index: Option<u32>,
 
+    /// App version string at the time of the build (e.g. "1.2.3" or "2.0.0+42").
+    #[serde(default)]
+    pub version: Option<String>,
+
     /// Workflow configuration snapshot; contains the workflow display `name`.
     #[serde(default)]
     pub config: Option<BuildConfig>,

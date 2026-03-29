@@ -299,6 +299,11 @@ fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
                 .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
         ),
+        Cell::from("#").style(
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        ),
         Cell::from("Started").style(
             Style::default()
                 .fg(Color::White)
@@ -321,11 +326,14 @@ fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
                 .map(format_time_ago)
                 .unwrap_or_else(|| "-".to_string());
 
+            let build_num = build.index.map(|i| format!("#{i}")).unwrap_or_default();
+
             Row::new([
                 Cell::from(status_text).style(status_style),
                 Cell::from(app_name.to_string()),
                 Cell::from(workflow.to_string()),
                 Cell::from(git_ref),
+                Cell::from(build_num).style(Style::default().fg(Color::DarkGray)),
                 Cell::from(started),
             ])
             .height(1)
@@ -371,6 +379,7 @@ fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
         Constraint::Fill(2),    // app name
         Constraint::Fill(1),    // workflow
         Constraint::Length(18), // branch/tag
+        Constraint::Length(5),  // build #
         Constraint::Length(11), // started
     ];
 
@@ -545,11 +554,30 @@ fn popup_block(title: &str) -> Block<'_> {
 const ACTIONS: [&str; 2] = ["  Download Artifacts", "  View Build Logs"];
 
 fn draw_build_actions(f: &mut Frame, app: &App) {
-    // Details section: status + app + workflow + branch + started + duration + commit = 7 rows.
-    const DETAIL_ROWS: u16 = 7;
+    // Split the commit message into up to 3 non-empty lines *before* sizing the
+    // popup so we can make the height dynamic.
+    let commit_lines: Vec<String> = app
+        .builds
+        .get(app.selected_index)
+        .and_then(|b| b.commit.as_ref())
+        .and_then(|c| c.message.as_deref())
+        .map(|msg| {
+            msg.lines()
+                .map(|l| l.trim().to_string())
+                .filter(|l| !l.is_empty())
+                .take(3)
+                .collect()
+        })
+        .unwrap_or_else(|| vec!["-".to_string()]);
+
+    // Fixed single-line fields: Status, App, Workflow, Branch,
+    // Version, Build #, Started, Duration = 8 rows.
+    const FIXED_DETAIL: u16 = 8;
+    let detail_rows = FIXED_DETAIL + commit_lines.len() as u16;
+
     // height = border(2) + detail_rows + separator(1) + actions + apk_status(1) + hint(1)
-    let h = 2 + DETAIL_ROWS + 1 + ACTIONS.len() as u16 + 1 + 1;
-    let area = centered_popup(f, 56, h);
+    let h = 2 + detail_rows + 1 + ACTIONS.len() as u16 + 1 + 1;
+    let area = centered_popup(f, 58, h);
     let block = popup_block("Build Actions");
     let inner = block.inner(area).inner(Margin {
         horizontal: 1,
@@ -558,7 +586,7 @@ fn draw_build_actions(f: &mut Frame, app: &App) {
     f.render_widget(block, area);
 
     let layout = Layout::vertical([
-        Constraint::Length(DETAIL_ROWS),
+        Constraint::Length(detail_rows),
         Constraint::Length(1),                    // separator
         Constraint::Length(ACTIONS.len() as u16), // action list
         Constraint::Length(1),                    // APK status / progress
@@ -570,6 +598,7 @@ fn draw_build_actions(f: &mut Frame, app: &App) {
     if let Some(build) = app.builds.get(app.selected_index) {
         let app_name = app.app_name(&build.app_id);
         let (status_txt, status_style) = status_cell(&build.status);
+
         let duration = match (build.started_at, build.finished_at) {
             (Some(s), Some(e)) => {
                 let secs = (e - s).num_seconds().max(0);
@@ -581,41 +610,47 @@ fn draw_build_actions(f: &mut Frame, app: &App) {
             }
             _ => "-".into(),
         };
-
         let git_ref = build.git_ref();
+        let workflow = build.workflow_display().to_string();
         let started_str = build
             .display_time()
             .map(|t| format!("{} ({})", t.format("%Y-%m-%d %H:%M"), format_time_ago(t)))
             .unwrap_or_else(|| "-".into());
-        let commit_msg = build
-            .commit
-            .as_ref()
-            .and_then(|c| c.message.clone())
+        let version_str = build.version.as_deref().unwrap_or("-").to_string();
+        let build_num_str = build
+            .index
+            .map(|i| format!("#{i}"))
             .unwrap_or_else(|| "-".into());
 
-        let detail_fields: &[(&str, &str, Option<Style>)] = &[
+        // 8 fixed single-line rows.
+        let single_fields: &[(&str, &str, Option<Style>)] = &[
             ("Status", &status_txt, Some(status_style)),
             ("App", app_name, None),
-            ("Workflow", build.workflow_display(), None),
+            ("Workflow", &workflow, None),
             ("Branch", &git_ref, None),
-            ("Started", &started_str, None),
-            ("Duration", &duration, None),
             (
-                "Commit",
-                &commit_msg,
+                "Version",
+                &version_str,
+                Some(Style::default().fg(Color::Cyan)),
+            ),
+            (
+                "Build #",
+                &build_num_str,
                 Some(Style::default().fg(Color::DarkGray)),
             ),
+            ("Started", &started_str, None),
+            ("Duration", &duration, None),
         ];
 
         let detail_layout = Layout::vertical(
-            detail_fields
-                .iter()
+            (0..detail_rows)
                 .map(|_| Constraint::Length(1))
                 .collect::<Vec<_>>(),
         )
         .split(layout[0]);
 
-        for (i, (label, value, style)) in detail_fields.iter().enumerate() {
+        // Single-line fields.
+        for (i, (label, value, style)) in single_fields.iter().enumerate() {
             f.render_widget(
                 Paragraph::new(Line::from(vec![
                     Span::styled(format!("{label:<9} "), Style::default().fg(Color::DarkGray)),
@@ -625,6 +660,20 @@ fn draw_build_actions(f: &mut Frame, app: &App) {
                     ),
                 ])),
                 detail_layout[i],
+            );
+        }
+
+        // Commit message: first line shows the "Commit" label; continuation
+        // lines use blank padding of the same width.
+        let commit_start = single_fields.len();
+        for (j, line) in commit_lines.iter().enumerate() {
+            let label = if j == 0 { "Commit" } else { "" };
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled(format!("{label:<9} "), Style::default().fg(Color::DarkGray)),
+                    Span::styled(line.clone(), Style::default().fg(Color::DarkGray)),
+                ])),
+                detail_layout[commit_start + j],
             );
         }
     }
