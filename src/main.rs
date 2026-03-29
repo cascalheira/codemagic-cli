@@ -107,14 +107,9 @@ async fn run_tui() -> Result<()> {
 
     let (event_tx, mut event_rx) = mpsc::channel::<Event>(64);
     std::thread::spawn(move || {
-        loop {
-            match event::read() {
-                Ok(ev) => {
-                    if event_tx.blocking_send(ev).is_err() {
-                        break;
-                    }
-                }
-                Err(_) => break,
+        while let Ok(ev) = event::read() {
+            if event_tx.blocking_send(ev).is_err() {
+                break;
             }
         }
     });

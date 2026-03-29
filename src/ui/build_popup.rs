@@ -415,11 +415,9 @@ pub(super) fn draw_log_content(f: &mut Frame, app: &App) {
     );
 
     let total = app.log_lines.len();
-    let pct = if total == 0 {
-        0
-    } else {
-        ((app.log_scroll + visible_h).min(total) * 100 / total) as u16
-    };
+    let pct = (((app.log_scroll + visible_h).min(total)) * 100)
+        .checked_div(total)
+        .unwrap_or(0) as u16;
     f.render_widget(
         Paragraph::new(format!(
             " [↑↓/jk] Scroll  [PgUp/PgDn] Page  [Esc] Back    line {}/{total} ({pct}%)",

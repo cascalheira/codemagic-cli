@@ -1,7 +1,5 @@
 use anyhow::{Context, Result, anyhow, bail};
-use chrono;
 use reqwest::Client;
-use serde_json;
 
 use crate::models::BuildsResponse;
 

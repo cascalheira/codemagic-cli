@@ -108,15 +108,15 @@ impl Build {
 
     /// Returns the git ref (branch or tag) as a display string.
     pub fn git_ref(&self) -> String {
-        if let Some(ref branch) = self.branch {
-            if !branch.is_empty() {
-                return branch.clone();
-            }
+        if let Some(ref branch) = self.branch
+            && !branch.is_empty()
+        {
+            return branch.clone();
         }
-        if let Some(ref tag) = self.tag {
-            if !tag.is_empty() {
-                return format!("tag:{}", tag);
-            }
+        if let Some(ref tag) = self.tag
+            && !tag.is_empty()
+        {
+            return format!("tag:{}", tag);
         }
         "-".to_string()
     }

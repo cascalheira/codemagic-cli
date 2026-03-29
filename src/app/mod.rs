@@ -422,11 +422,11 @@ impl App {
             .collect();
 
         for build in &self.builds {
-            if let Some(id) = build.effective_workflow_id() {
-                if seen.insert(id.to_string()) {
-                    self.available_workflows
-                        .push((id.to_string(), build.workflow_display().to_string()));
-                }
+            if let Some(id) = build.effective_workflow_id()
+                && seen.insert(id.to_string())
+            {
+                self.available_workflows
+                    .push((id.to_string(), build.workflow_display().to_string()));
             }
         }
     }

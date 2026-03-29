@@ -13,15 +13,16 @@ impl App {
         self.app_info_selected = 0;
         self.app_info_copy_msg = None;
         // Reuse the same app list as the new-build wizard; fetch if not loaded.
-        if self.new_build_apps.is_empty() && !self.new_build_apps_loading {
-            if let Some(client) = self.api_client.clone() {
-                self.new_build_apps_loading = true;
-                let tx = self.tx.clone();
-                tokio::spawn(async move {
-                    let result = client.get_apps().await;
-                    let _ = tx.send(AppMessage::AppsLoaded(result)).await;
-                });
-            }
+        if self.new_build_apps.is_empty()
+            && !self.new_build_apps_loading
+            && let Some(client) = self.api_client.clone()
+        {
+            self.new_build_apps_loading = true;
+            let tx = self.tx.clone();
+            tokio::spawn(async move {
+                let result = client.get_apps().await;
+                let _ = tx.send(AppMessage::AppsLoaded(result)).await;
+            });
         }
     }
 
@@ -40,36 +41,30 @@ impl App {
                 self.app_info_open = false;
                 self.app_info_copy_msg = None;
             }
-            KeyCode::Up | KeyCode::Char('k') => {
-                if self.app_info_selected > 0 {
-                    self.app_info_selected -= 1;
-                    if let Some(&li) = selectable.get(self.app_info_selected) {
-                        self.ensure_app_info_visible(li);
-                    }
+            KeyCode::Up | KeyCode::Char('k') if self.app_info_selected > 0 => {
+                self.app_info_selected -= 1;
+                if let Some(&li) = selectable.get(self.app_info_selected) {
+                    self.ensure_app_info_visible(li);
                 }
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                if self.app_info_selected + 1 < sel_count {
-                    self.app_info_selected += 1;
-                    if let Some(&li) = selectable.get(self.app_info_selected) {
-                        self.ensure_app_info_visible(li);
-                    }
+            KeyCode::Down | KeyCode::Char('j') if self.app_info_selected + 1 < sel_count => {
+                self.app_info_selected += 1;
+                if let Some(&li) = selectable.get(self.app_info_selected) {
+                    self.ensure_app_info_visible(li);
                 }
             }
             KeyCode::Enter | KeyCode::Char('y') => {
-                if let Some(&li) = selectable.get(self.app_info_selected) {
-                    if let Some(entry) = entries.get(li) {
-                        if let Some(id) = entry.selectable_id() {
-                            let label = entry.copy_label();
-                            match copy_to_clipboard(id) {
-                                Ok(()) => {
-                                    self.app_info_copy_msg = Some(format!("✓ Copied {label}…"));
-                                }
-                                Err(e) => {
-                                    self.app_info_copy_msg =
-                                        Some(format!("✗ Clipboard error: {e}"));
-                                }
-                            }
+                if let Some(&li) = selectable.get(self.app_info_selected)
+                    && let Some(entry) = entries.get(li)
+                    && let Some(id) = entry.selectable_id()
+                {
+                    let label = entry.copy_label();
+                    match copy_to_clipboard(id) {
+                        Ok(()) => {
+                            self.app_info_copy_msg = Some(format!("✓ Copied {label}…"));
+                        }
+                        Err(e) => {
+                            self.app_info_copy_msg = Some(format!("✗ Clipboard error: {e}"));
                         }
                     }
                 }

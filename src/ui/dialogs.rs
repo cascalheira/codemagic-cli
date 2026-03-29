@@ -58,7 +58,7 @@ pub(super) fn draw_app_info(f: &mut Frame, app: &App) {
     let start = app.app_info_scroll;
     let total = entries.len();
     let end = (start + visible_h).min(total);
-    let pct = if total == 0 { 100 } else { end * 100 / total };
+    let pct = (end * 100).checked_div(total).unwrap_or(100);
 
     // ── Render each visible entry ───────────────────────────────────────────
     let lines: Vec<Line> = entries

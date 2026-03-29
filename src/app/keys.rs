@@ -63,15 +63,11 @@ impl App {
         match popup {
             BuildPopup::Actions => match key.code {
                 KeyCode::Esc => self.build_popup = None,
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if self.popup_action_index > 0 {
-                        self.popup_action_index -= 1;
-                    }
+                KeyCode::Up | KeyCode::Char('k') if self.popup_action_index > 0 => {
+                    self.popup_action_index -= 1;
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if self.popup_action_index < 1 {
-                        self.popup_action_index += 1;
-                    }
+                KeyCode::Down | KeyCode::Char('j') if self.popup_action_index < 1 => {
+                    self.popup_action_index += 1;
                 }
                 KeyCode::Enter => self.confirm_build_action(),
                 _ => {}
@@ -79,10 +75,8 @@ impl App {
 
             BuildPopup::Artifacts => match key.code {
                 KeyCode::Esc | KeyCode::Char('q') => self.build_popup = Some(BuildPopup::Actions),
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if self.artifact_index > 0 {
-                        self.artifact_index -= 1;
-                    }
+                KeyCode::Up | KeyCode::Char('k') if self.artifact_index > 0 => {
+                    self.artifact_index -= 1;
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     // Extra row at the end when an AAB is present.
@@ -109,10 +103,8 @@ impl App {
 
             BuildPopup::LogSteps => match key.code {
                 KeyCode::Esc | KeyCode::Char('q') => self.build_popup = Some(BuildPopup::Actions),
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if self.log_step_index > 0 {
-                        self.log_step_index -= 1;
-                    }
+                KeyCode::Up | KeyCode::Char('k') if self.log_step_index > 0 => {
+                    self.log_step_index -= 1;
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     let max = self
@@ -169,10 +161,8 @@ impl App {
 
             Some(NewBuildStep::SelectApp) => match key.code {
                 KeyCode::Esc => self.new_build_step = None,
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if self.new_build_app_index > 0 {
-                        self.new_build_app_index -= 1;
-                    }
+                KeyCode::Up | KeyCode::Char('k') if self.new_build_app_index > 0 => {
+                    self.new_build_app_index -= 1;
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     let max = self.new_build_apps.len().saturating_sub(1);
@@ -192,13 +182,11 @@ impl App {
                             self.new_build_typing_workflow = false;
                             self.new_build_workflow_input.clear();
                         }
-                        KeyCode::Enter => {
-                            if !self.new_build_workflow_input.trim().is_empty() {
-                                self.new_build_step = Some(NewBuildStep::EnterBranch);
-                                self.new_build_branch_filter.clear();
-                                self.new_build_branch_list_index = 0;
-                                self.new_build_error = None;
-                            }
+                        KeyCode::Enter if !self.new_build_workflow_input.trim().is_empty() => {
+                            self.new_build_step = Some(NewBuildStep::EnterBranch);
+                            self.new_build_branch_filter.clear();
+                            self.new_build_branch_list_index = 0;
+                            self.new_build_error = None;
                         }
                         KeyCode::Char(c) => {
                             self.new_build_workflow_input.push(c);
@@ -219,15 +207,13 @@ impl App {
                             self.new_build_step = Some(NewBuildStep::SelectApp);
                             self.new_build_workflow_index = 0;
                         }
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            if self.new_build_workflow_index > 0 {
-                                self.new_build_workflow_index -= 1;
-                            }
+                        KeyCode::Up | KeyCode::Char('k') if self.new_build_workflow_index > 0 => {
+                            self.new_build_workflow_index -= 1;
                         }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            if self.new_build_workflow_index + 1 < total {
-                                self.new_build_workflow_index += 1;
-                            }
+                        KeyCode::Down | KeyCode::Char('j')
+                            if self.new_build_workflow_index + 1 < total =>
+                        {
+                            self.new_build_workflow_index += 1;
                         }
                         KeyCode::Enter => self.confirm_new_build_workflow(),
                         _ => {}
@@ -246,10 +232,8 @@ impl App {
                     }
                     KeyCode::Enter => self.submit_new_build(),
                     // Arrow keys navigate the filtered list.
-                    KeyCode::Up => {
-                        if self.new_build_branch_list_index > 0 {
-                            self.new_build_branch_list_index -= 1;
-                        }
+                    KeyCode::Up if self.new_build_branch_list_index > 0 => {
+                        self.new_build_branch_list_index -= 1;
                     }
                     KeyCode::Down => {
                         let max = self.get_filtered_branches().len().saturating_sub(1);
