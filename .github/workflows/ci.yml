@@ -14,8 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: macOS · x86-64
-            runner: macos-13
+          # Both macOS jobs run on Apple Silicon; x86-64 is cross-compiled.
+          - name: macOS · x86-64 (cross-compiled)
+            runner: macos-latest
             target: x86_64-apple-darwin
 
           - name: macOS · arm64

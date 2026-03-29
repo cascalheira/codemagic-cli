@@ -21,13 +21,15 @@ jobs:
       matrix:
         include:
           # ── macOS ───────────────────────────────────────────────────────────
-          - name: macOS · Intel (x86-64)
-            runner: macos-13 # last GitHub-hosted Intel Mac runner
+          # Both macOS jobs run on Apple Silicon runners.
+          # Rust + Apple's toolchain cross-compile x86-64 natively — no extra setup.
+          - name: macOS · x86-64 (cross-compiled)
+            runner: macos-latest
             target: x86_64-apple-darwin
             artifact: codemagic-cli-macos-x86_64
 
-          - name: macOS · Apple Silicon (arm64)
-            runner: macos-latest # macOS 14 on M-series hardware
+          - name: macOS · arm64
+            runner: macos-latest
             target: aarch64-apple-darwin
             artifact: codemagic-cli-macos-aarch64
 
