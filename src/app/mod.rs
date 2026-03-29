@@ -412,16 +412,23 @@ impl App {
     // ─── Internal helper ─────────────────────────────────────────────────────
 
     pub(crate) fn update_available_workflows(&mut self) {
-        let mut seen: HashSet<String> = HashSet::new();
-        let mut workflows: Vec<(String, String)> = Vec::new();
+        // Seed `seen` from workflows already in the list so that applying a
+        // filter (which only loads builds for one workflow) never shrinks the
+        // set of choices shown in the filter popup.
+        let mut seen: HashSet<String> = self
+            .available_workflows
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect();
+
         for build in &self.builds {
             if let Some(id) = build.effective_workflow_id() {
                 if seen.insert(id.to_string()) {
-                    workflows.push((id.to_string(), build.workflow_display().to_string()));
+                    self.available_workflows
+                        .push((id.to_string(), build.workflow_display().to_string()));
                 }
             }
         }
-        self.available_workflows = workflows;
     }
 }
 
