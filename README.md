@@ -1,4 +1,4 @@
-# codemagic-cli
+# codemagic-cli  (Vibecoded AI slop - but hey, it works!)
 
 A terminal UI and CLI tool for [Codemagic CI/CD](https://codemagic.io), built with [ratatui](https://ratatui.rs).
 
