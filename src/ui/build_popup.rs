@@ -258,7 +258,7 @@ pub(super) fn draw_artifacts(f: &mut Frame, app: &App) {
             if let Some(ref name) = aab_name {
                 rows.push(
                     Row::new([
-                        Cell::from(format!("  • Convert {name} → APK  (bundletool)"))
+                        Cell::from(format!("{name} → APK"))
                             .style(Style::default().fg(Color::Yellow)),
                         Cell::from(""),
                         Cell::from(""),
