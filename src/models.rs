@@ -69,6 +69,12 @@ pub struct Build {
     #[serde(default)]
     pub index: Option<u32>,
 
+    /// The real build number used in the app artefact (e.g. iOS CFBundleVersion
+    /// or Android versionCode). This is typically a global counter that is
+    /// higher than `index`, which only counts per-app builds.
+    #[serde(rename = "buildNumber", default)]
+    pub build_number: Option<u32>,
+
     /// App version string at the time of the build (e.g. "1.2.3" or "2.0.0+42").
     #[serde(default)]
     pub version: Option<String>,
@@ -104,6 +110,23 @@ impl Build {
             .map(|c| c.name.as_str())
             .or_else(|| self.effective_workflow_id())
             .unwrap_or("-")
+    }
+
+    /// The best available build number for display.
+    ///
+    /// Checks (in order):
+    /// 1. `buildNumber` top-level field (future-proofing, currently absent).
+    /// 2. `versionCode` on the first artefact that carries one — this is the
+    ///    real app build number (Android versionCode / iOS CFBundleVersion).
+    /// 3. `index` — Codemagic's sequential per-app build counter (fallback).
+    pub fn display_build_number(&self) -> Option<u32> {
+        self.build_number
+            .or_else(|| {
+                self.artefacts
+                    .iter()
+                    .find_map(|a| a.version_code.as_deref().and_then(|v| v.parse().ok()))
+            })
+            .or(self.index)
     }
 
     /// Returns the git ref (branch or tag) as a display string.
@@ -204,6 +227,10 @@ pub struct Artefact {
     pub package_name: Option<String>,
     #[serde(rename = "versionName", default)]
     pub version_name: Option<String>,
+    /// The app build number embedded in the artefact (e.g. Android versionCode
+    /// or iOS CFBundleVersion). Returned as a string by the API.
+    #[serde(rename = "versionCode", default)]
+    pub version_code: Option<String>,
     #[serde(default)]
     pub md5: Option<String>,
 }

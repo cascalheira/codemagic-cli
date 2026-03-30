@@ -70,7 +70,7 @@ pub(super) fn draw_build_actions(f: &mut Frame, app: &App) {
             .unwrap_or_else(|| "-".into());
         let version_str = build.version.as_deref().unwrap_or("-").to_string();
         let build_num_str = build
-            .index
+            .display_build_number()
             .map(|i| format!("#{i}"))
             .unwrap_or_else(|| "-".into());
 

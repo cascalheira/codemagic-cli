@@ -157,7 +157,10 @@ pub(super) fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
                 .map(format_time_ago)
                 .unwrap_or_else(|| "-".to_string());
 
-            let build_num = build.index.map(|i| format!("#{i}")).unwrap_or_default();
+            let build_num = build
+                .display_build_number()
+                .map(|i| format!("#{i}"))
+                .unwrap_or_default();
 
             Row::new([
                 Cell::from(status_text).style(status_style),

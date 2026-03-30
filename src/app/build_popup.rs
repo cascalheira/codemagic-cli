@@ -78,7 +78,7 @@ impl App {
         let artifact_name = artefact.display_name().to_string();
         let app_name = self.app_name(&build.app_id).to_string();
         let workflow_name = build.workflow_display().to_string();
-        let build_index = build.index;
+        let build_index = build.display_build_number();
 
         let Some(client) = self.api_client.clone() else {
             return;
@@ -118,7 +118,7 @@ impl App {
         // Capture the same path components used by regular artifact downloads.
         let app_name = self.app_name(&build.app_id).to_string();
         let workflow_name = build.workflow_display().to_string();
-        let build_index = build.index;
+        let build_index = build.display_build_number();
         let Some(client) = self.api_client.clone() else {
             return;
         };

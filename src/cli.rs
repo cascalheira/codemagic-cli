@@ -48,7 +48,7 @@ pub async fn run_download_apk(app_id: &str, workflow_id: &str) -> Result<()> {
     eprintln!("Searching for the latest build with an AAB artefact…");
     let (build, aab) = find_latest_aab(&client, app_id, workflow_id).await?;
     let build_label = build
-        .index
+        .display_build_number()
         .map(|i| format!("#{i}"))
         .unwrap_or_else(|| format!("{:.8}", build.id));
     eprintln!("Found AAB in build {build_label}: {}", aab.display_name());
