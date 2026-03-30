@@ -71,8 +71,86 @@ jobs:
         run: cargo build --release --locked --target ${{ matrix.target }}
 
       # Reduces binary size — safe for distribution builds.
+      # Must happen BEFORE signing — stripping after signing invalidates the signature.
       - name: Strip debug symbols
         run: strip target/${{ matrix.target }}/release/codemagic-cli
+
+      # ── macOS code signing ────────────────────────────────────────────────
+      # Import the Developer ID Application certificate into a short-lived
+      # keychain so codesign can find it without touching the login keychain.
+      - name: Import signing certificate
+        if: runner.os == 'macOS'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PWD }}
+        run: |
+          # Decode the base64 certificate to a temp .p12 file
+          echo "$CERTIFICATE_BASE64" | base64 --decode > /tmp/certificate.p12
+
+          # Create a dedicated build keychain and make it the default
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          # Keep the keychain unlocked for up to 1 hour (enough for the job)
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          # Import the certificate and allow codesign to access it
+          security import /tmp/certificate.p12 \
+            -k build.keychain \
+            -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+          # Clean up the decoded .p12 immediately
+          rm /tmp/certificate.p12
+
+      # Sign with the Hardened Runtime flag — required for notarization.
+      - name: Sign binary
+        if: runner.os == 'macOS'
+        env:
+          SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          codesign \
+            --force \
+            --options runtime \
+            --sign "$SIGNING_IDENTITY" \
+            --timestamp \
+            target/${{ matrix.target }}/release/codemagic-cli
+
+          # Verify the signature looks correct before continuing
+          codesign --verify --deep --strict --verbose=2 \
+            target/${{ matrix.target }}/release/codemagic-cli
+
+      # Notarize the signed binary with Apple.
+      # notarytool requires a zip/dmg/pkg — wrap the binary, submit, then discard the zip.
+      - name: Notarize binary
+        if: runner.os == 'macOS'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Wrap into a zip for submission (notarytool does not accept bare binaries)
+          ditto -c -k --keepParent \
+            target/${{ matrix.target }}/release/codemagic-cli \
+            /tmp/codemagic-cli-notarize.zip
+
+          # Submit and wait for Apple to finish (usually < 2 min)
+          xcrun notarytool submit /tmp/codemagic-cli-notarize.zip \
+            --apple-id      "$APPLE_ID" \
+            --password      "$APPLE_APP_PASSWORD" \
+            --team-id       "$APPLE_TEAM_ID" \
+            --wait
+
+          rm /tmp/codemagic-cli-notarize.zip
+
+      # Always remove the temporary keychain, even if a previous step failed.
+      - name: Clean up keychain
+        if: runner.os == 'macOS' && always()
+        run: security delete-keychain build.keychain || true
 
       # Pack the binary into a .tar.gz and generate a SHA-256 checksum.
       - name: Package
