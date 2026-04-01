@@ -452,6 +452,8 @@ pub(super) fn draw_log_content(f: &mut Frame, app: &App) {
             Span::styled(" Scroll  ", Style::default().fg(Color::DarkGray)),
             Span::styled("[PgUp/PgDn]", Style::default().fg(Color::Yellow)),
             Span::styled(" Page  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[g/G]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Top/Bottom  ", Style::default().fg(Color::DarkGray)),
             Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
             Span::styled(
                 format!(" Back    line {}/{total} ({pct}%)", app.log_scroll + 1),

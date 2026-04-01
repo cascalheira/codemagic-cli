@@ -140,6 +140,13 @@ impl App {
                     let max = self.log_lines.len().saturating_sub(1);
                     self.log_scroll = (self.log_scroll + 20).min(max);
                 }
+                // Jump to top / bottom.
+                KeyCode::Char('g') => {
+                    self.log_scroll = 0;
+                }
+                KeyCode::Char('G') => {
+                    self.log_scroll = self.log_lines.len().saturating_sub(1);
+                }
                 _ => {}
             },
         }
