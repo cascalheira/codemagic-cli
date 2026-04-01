@@ -67,11 +67,16 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
         LoadingState::Idle => {
             let total = app.builds.len();
             let live = app.running_build_count();
+            let row = if total == 0 {
+                0
+            } else {
+                app.selected_index + 1
+            };
 
-            let mut spans = vec![Span::styled(
-                format!("{total} builds"),
-                Style::default().fg(Color::DarkGray),
-            )];
+            let mut spans = vec![
+                Span::styled(format!("{row}/{total}"), Style::default().fg(Color::White)),
+                Span::styled(" builds", Style::default().fg(Color::DarkGray)),
+            ];
 
             if app.has_more {
                 spans.push(Span::styled("   ", Style::default().fg(Color::DarkGray)));
