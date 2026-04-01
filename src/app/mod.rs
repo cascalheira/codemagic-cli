@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use tokio::sync::mpsc;
 
 use crate::api::ApiClient;
@@ -210,6 +211,7 @@ pub struct App {
     // ── Misc ──
     pub should_quit: bool,
     pub status_message: Option<String>,
+    pub last_refreshed: Option<DateTime<Utc>>,
 
     // ── Internals ──
     pub(crate) api_client: Option<ApiClient>,
@@ -271,6 +273,7 @@ impl App {
             settings_success: None,
             should_quit: false,
             status_message: None,
+            last_refreshed: None,
             api_client,
             tx,
         }

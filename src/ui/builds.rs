@@ -77,6 +77,12 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
                         .add_modifier(Modifier::BOLD),
                 ));
             }
+            if let Some(ts) = app.last_refreshed {
+                spans.push(Span::styled(
+                    format!("   ↻ {}", format_time_ago(ts)),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
             Line::from(spans)
         }
     };

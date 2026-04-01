@@ -1,3 +1,5 @@
+use chrono::Utc;
+
 use super::*;
 
 use crate::api::PAGE_SIZE;
@@ -17,7 +19,12 @@ impl App {
                         }
                         if self.skip == 0 {
                             self.builds = response.builds;
-                            self.selected_index = 0;
+                            // Clamp selection to the new list length so a
+                            // background soft-refresh doesn't jump the cursor
+                            // to row 0 when the user is scrolled down.
+                            self.selected_index =
+                                self.selected_index.min(self.builds.len().saturating_sub(1));
+                            self.last_refreshed = Some(Utc::now());
                         } else {
                             self.builds.extend(response.builds);
                         }

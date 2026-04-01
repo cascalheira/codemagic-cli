@@ -52,6 +52,18 @@ impl App {
         self.fetch_builds();
     }
 
+    /// Silently re-fetches the first page from the API without clearing the
+    /// currently displayed list or resetting the selection. Used by the
+    /// background auto-refresh timer so the UI stays stable between ticks.
+    pub fn soft_refresh(&mut self) {
+        if matches!(self.loading_state, LoadingState::Loading) {
+            return;
+        }
+        self.skip = 0;
+        self.has_more = true;
+        self.fetch_builds();
+    }
+
     pub(crate) fn open_filter_popup(&mut self) {
         self.show_filter_popup = true;
         self.filter_selected_index = match &self.workflow_filter {

@@ -142,14 +142,20 @@ async fn event_loop(
     poll_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     poll_tick.tick().await;
 
+    // Full builds-list refresh in the background every 30 seconds.
+    let mut auto_refresh_tick = tokio::time::interval(Duration::from_secs(30));
+    auto_refresh_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    auto_refresh_tick.tick().await; // skip the immediate first tick
+
     loop {
         terminal.draw(|f| ui::draw(f, app))?;
 
         tokio::select! {
             Some(event) = event_rx.recv() => handle_event(app, event),
             Some(msg)   = rx.recv()       => app.handle_message(msg),
-            _ = redraw_tick.tick() => {}
-            _ = poll_tick.tick()   => app.poll_running_builds(),
+            _ = redraw_tick.tick()        => {}
+            _ = poll_tick.tick()          => app.poll_running_builds(),
+            _ = auto_refresh_tick.tick()  => app.soft_refresh(),
         }
 
         if app.should_quit {
