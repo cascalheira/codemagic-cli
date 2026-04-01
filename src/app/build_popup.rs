@@ -12,14 +12,31 @@ impl App {
         self.detail_error = None;
         self.artifact_message = None;
         self.apk_message = None;
+        self.cancel_message = None;
     }
 
     pub(crate) fn confirm_build_action(&mut self) {
         match self.popup_action_index {
             0 => self.open_artifacts(),
             1 => self.open_log_steps(),
+            2 => self.request_cancel_build(),
             _ => {}
         }
+    }
+
+    pub(crate) fn request_cancel_build(&mut self) {
+        let Some(build_id) = self.selected_build().map(|b| b.id.clone()) else {
+            return;
+        };
+        let Some(client) = self.api_client.clone() else {
+            return;
+        };
+        self.cancel_message = Some("Cancelling build…".into());
+        let tx = self.tx.clone();
+        tokio::spawn(async move {
+            let result = client.cancel_build(&build_id).await;
+            let _ = tx.send(AppMessage::BuildCancelled(result)).await;
+        });
     }
 
     /// Returns the currently selected build (from the list).

@@ -2,7 +2,7 @@ use super::*;
 use crate::app::InfoEntry;
 use ratatui::widgets::Wrap;
 
-const ACTIONS: [&str; 2] = ["  Download Artifacts", "  View Build Logs"];
+const BASE_ACTIONS: [&str; 2] = ["  ⇓ Download Artifacts", "  ≡ View Build Logs"];
 
 // ── 1. Actions menu ───────────────────────────────────────────────────────────
 
@@ -28,8 +28,9 @@ pub(super) fn draw_build_actions(f: &mut Frame, app: &App) {
     const FIXED_DETAIL: u16 = 8;
     let detail_rows = FIXED_DETAIL + commit_lines.len() as u16;
 
-    // height = border(2) + detail_rows + separator(1) + actions + apk_status(1) + hint(1)
-    let h = 2 + detail_rows + 1 + ACTIONS.len() as u16 + 1 + 1;
+    let action_count = app.action_count() as u16;
+    // height = border(2) + detail_rows + separator(1) + actions + status(1) + hint(1)
+    let h = 2 + detail_rows + 1 + action_count + 1 + 1;
     let area = centered_popup(f, 58, h);
     let block = popup_block("Build Actions");
     let inner = block.inner(area).inner(Margin {
@@ -40,10 +41,10 @@ pub(super) fn draw_build_actions(f: &mut Frame, app: &App) {
 
     let layout = Layout::vertical([
         Constraint::Length(detail_rows),
-        Constraint::Length(1),                    // separator
-        Constraint::Length(ACTIONS.len() as u16), // action list
-        Constraint::Length(1),                    // APK status / progress
-        Constraint::Length(1),                    // hint
+        Constraint::Length(1),            // separator
+        Constraint::Length(action_count), // action list
+        Constraint::Length(1),            // status line (cancel / apk)
+        Constraint::Length(1),            // hint
     ])
     .split(inner);
 
@@ -139,11 +140,22 @@ pub(super) fn draw_build_actions(f: &mut Frame, app: &App) {
         layout[1],
     );
 
-    // ── Action list ───────────────────────────────────────────────────
-    let items: Vec<ListItem> = ACTIONS
+    // ── Action list ─────────────────────────────────────────────
+    let is_running = app
+        .builds
+        .get(app.selected_index)
+        .map(|b| is_running_status(&b.status))
+        .unwrap_or(false);
+    let mut items: Vec<ListItem> = BASE_ACTIONS
         .iter()
         .map(|a| ListItem::new(Line::from(*a)))
         .collect();
+    if is_running {
+        items.push(ListItem::new(Line::from(vec![Span::styled(
+            "  ⊗ Cancel Build",
+            Style::default().fg(Color::Red),
+        )])));
+    }
 
     let list = List::new(items)
         .highlight_style(
@@ -158,10 +170,13 @@ pub(super) fn draw_build_actions(f: &mut Frame, app: &App) {
     state.select(Some(app.popup_action_index));
     f.render_stateful_widget(list, layout[2], &mut state);
 
-    // ── APK status / progress line ──────────────────────────────────
-    if let Some(ref msg) = app.apk_message {
+    // ── Status line (cancel or apk progress) ────────────────────────
+    let status_msg = app.cancel_message.as_deref().or(app.apk_message.as_deref());
+    if let Some(msg) = status_msg {
         let color = if msg.starts_with('✗') {
             Color::Red
+        } else if msg.starts_with('✓') {
+            Color::Green
         } else {
             Color::Yellow
         };

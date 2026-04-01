@@ -66,7 +66,9 @@ impl App {
                 KeyCode::Up | KeyCode::Char('k') if self.popup_action_index > 0 => {
                     self.popup_action_index -= 1;
                 }
-                KeyCode::Down | KeyCode::Char('j') if self.popup_action_index < 1 => {
+                KeyCode::Down | KeyCode::Char('j')
+                    if self.popup_action_index + 1 < self.action_count() =>
+                {
                     self.popup_action_index += 1;
                 }
                 KeyCode::Enter => self.confirm_build_action(),

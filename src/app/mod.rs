@@ -126,6 +126,8 @@ pub enum AppMessage {
     BuildStarted(Result<String>),
     // Settings dialog
     SettingsTokenValidated(Result<bool>),
+    /// Result of a cancel-build request.
+    BuildCancelled(Result<()>),
 }
 
 // ─── App ─────────────────────────────────────────────────────────────────────
@@ -177,6 +179,8 @@ pub struct App {
     // Status / feedback lines shown inside the popups.
     pub artifact_message: Option<String>,
     pub apk_message: Option<String>,
+    /// Status line shown in the Build Actions popup while cancelling.
+    pub cancel_message: Option<String>,
 
     // ── New-build wizard ──
     pub new_build_step: Option<NewBuildStep>,
@@ -267,6 +271,7 @@ impl App {
             new_build_branch_list_index: 0,
             new_build_error: None,
             new_build_submitting: false,
+            cancel_message: None,
             log_wrap: false,
             app_info_open: false,
             app_info_scroll: 0,
@@ -305,6 +310,18 @@ impl App {
                 .map(|(_, name)| name.as_str())
                 .unwrap_or(id.as_str()),
         }
+    }
+
+    /// Number of actions available for the currently selected build.
+    /// Normally 2 (Download Artifacts, View Build Logs); adds "Cancel Build"
+    /// when the build is still running.
+    pub fn action_count(&self) -> usize {
+        let running = self
+            .builds
+            .get(self.selected_index)
+            .map(|b| is_running_status(&b.status))
+            .unwrap_or(false);
+        if running { 3 } else { 2 }
     }
 
     /// Number of builds in the list that are currently in a running state.

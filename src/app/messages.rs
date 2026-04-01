@@ -236,6 +236,21 @@ impl App {
                 }
             }
 
+            AppMessage::BuildCancelled(result) => {
+                match result {
+                    Ok(()) => {
+                        self.cancel_message = Some("✓ Build cancelled.".into());
+                        // Refresh so the status flips to 'canceled' immediately.
+                        self.skip = 0;
+                        self.is_soft_refresh = true;
+                        self.fetch_builds();
+                    }
+                    Err(e) => {
+                        self.cancel_message = Some(format!("✗ Cancel failed: {e}"));
+                    }
+                }
+            }
+
             AppMessage::BuildStarted(result) => {
                 self.new_build_submitting = false;
                 match result {

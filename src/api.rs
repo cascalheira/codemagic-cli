@@ -217,6 +217,23 @@ impl ApiClient {
         Ok(data.build_id)
     }
 
+    /// Cancels a running build via `DELETE /builds/{buildId}`.
+    pub async fn cancel_build(&self, build_id: &str) -> Result<()> {
+        let response = self
+            .client
+            .delete(format!("{API_BASE_URL}/builds/{build_id}"))
+            .header("x-auth-token", &self.api_token)
+            .send()
+            .await
+            .context("Failed to cancel build")?;
+        if !response.status().is_success() {
+            let status = response.status();
+            let msg = response.text().await.unwrap_or_default();
+            bail!("API error {status}: {msg}");
+        }
+        Ok(())
+    }
+
     /// Downloads any URL to a local path (streaming via byte buffer).
     pub async fn download_file(&self, url: &str, dest: &std::path::Path) -> Result<()> {
         use tokio::io::AsyncWriteExt;
