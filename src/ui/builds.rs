@@ -133,6 +133,8 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
             Span::raw(" New Build  "),
             Span::styled("[i]", Style::default().fg(Color::Yellow)),
             Span::raw(" App IDs  "),
+            Span::styled("[o]", Style::default().fg(Color::Yellow)),
+            Span::raw(" Open in Browser  "),
             Span::styled("[s]", Style::default().fg(Color::Yellow)),
             Span::raw(" Settings  "),
             Span::styled("[q]", Style::default().fg(Color::Yellow)),

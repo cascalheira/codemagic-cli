@@ -64,6 +64,25 @@ impl App {
         self.fetch_builds();
     }
 
+    /// Opens the selected build's Codemagic web page in the system browser.
+    pub(crate) fn open_selected_build_in_browser(&self) {
+        let Some(build) = self.builds.get(self.selected_index) else {
+            return;
+        };
+        let url = format!(
+            "https://codemagic.io/app/{}/build/{}",
+            build.app_id, build.id
+        );
+        #[cfg(target_os = "macos")]
+        let _ = std::process::Command::new("open").arg(&url).spawn();
+        #[cfg(target_os = "linux")]
+        let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+        #[cfg(target_os = "windows")]
+        let _ = std::process::Command::new("cmd")
+            .args(["/c", "start", &url])
+            .spawn();
+    }
+
     pub(crate) fn open_filter_popup(&mut self) {
         self.show_filter_popup = true;
         self.filter_selected_index = match &self.workflow_filter {

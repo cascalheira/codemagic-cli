@@ -55,6 +55,7 @@ impl App {
             KeyCode::Char('f') => self.open_filter_popup(),
             KeyCode::Char('l') => self.load_more(),
             KeyCode::Char('r') => self.refresh(),
+            KeyCode::Char('o') => self.open_selected_build_in_browser(),
             _ => {}
         }
     }
