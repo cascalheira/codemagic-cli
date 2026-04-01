@@ -261,9 +261,10 @@ impl App {
                         // Show the new build ID briefly in the status bar.
                         let short = &build_id[..build_id.len().min(8)];
                         self.status_message = Some(format!("✓ Build queued  (id: {short}…)"));
-                        // Reload the list from the top so the new build appears.
+                        // Reload the list from the top so the new build appears
+                        // without clearing the existing list.
                         self.skip = 0;
-                        self.builds.clear();
+                        self.is_soft_refresh = true;
                         self.fetch_builds();
                     }
                     Err(e) => {
