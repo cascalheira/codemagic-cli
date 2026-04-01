@@ -1,5 +1,6 @@
 use super::*;
 use crate::app::InfoEntry;
+use ratatui::widgets::Wrap;
 
 const ACTIONS: [&str; 2] = ["  Download Artifacts", "  View Build Logs"];
 
@@ -181,14 +182,14 @@ pub(super) fn draw_build_actions(f: &mut Frame, app: &App) {
 // ── 2. Artifacts ──────────────────────────────────────────────────────────────
 
 pub(super) fn draw_artifacts(f: &mut Frame, app: &App) {
-    let area = centered_popup(f, 64, 20);
+    let area = centered_popup(f, 64, 21);
     let block = popup_block("Artifacts");
     let inner = block.inner(area);
     f.render_widget(block, area);
 
     let layout = Layout::vertical([
         Constraint::Fill(1),
-        Constraint::Length(1), // status
+        Constraint::Length(2), // status (2 rows so long errors wrap)
         Constraint::Length(1), // hint
     ])
     .split(inner);
@@ -300,7 +301,9 @@ pub(super) fn draw_artifacts(f: &mut Frame, app: &App) {
             Color::Yellow
         };
         f.render_widget(
-            Paragraph::new(format!(" {msg}")).style(Style::default().fg(color)),
+            Paragraph::new(format!(" {msg}"))
+                .style(Style::default().fg(color))
+                .wrap(Wrap { trim: false }),
             layout[1],
         );
     }

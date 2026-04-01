@@ -92,25 +92,38 @@ pub(crate) async fn convert_aab_to_apk(
         .await?;
     if !out.status.success() {
         let stderr = String::from_utf8_lossy(&out.stderr);
-        bail!("bundletool failed: {stderr}");
+        // Java stack traces are multi-line; grab the first non-empty line
+        // (the exception type + message) so the TUI status bar shows something
+        // actionable instead of cutting off mid-stack-trace.
+        let summary = stderr
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("(no output)")
+            .trim()
+            .to_string();
+        bail!("bundletool failed: {summary}");
     }
 
-    // 5. Extract universal.apk from the .apks ZIP.
+    // 5. Extract universal.apk from the .apks ZIP using the zip crate so this
+    //    works on Windows where `unzip` is not available.
     status!("Extracting universal APK…");
-    let extract = tokio::process::Command::new("unzip")
-        .args([
-            "-o",
-            apks_path.to_str().unwrap_or(""),
-            "universal.apk",
-            "-d",
-            tmp.to_str().unwrap_or("/tmp"),
-        ])
-        .output()
-        .await?;
-    if !extract.status.success() {
-        let stderr = String::from_utf8_lossy(&extract.stderr);
-        bail!("unzip failed: {stderr}");
-    }
+    let apks_path_clone = apks_path.clone();
+    let universal_apk_dest = tmp.join("universal.apk");
+    let universal_apk_dest_closure = universal_apk_dest.clone();
+    tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+        let file = std::fs::File::open(&apks_path_clone).context("Failed to open .apks archive")?;
+        let mut archive = zip::ZipArchive::new(file).context("Failed to read .apks archive")?;
+        let mut zip_entry = archive
+            .by_name("universal.apk")
+            .context("universal.apk not found in .apks archive")?;
+        let mut out_file = std::fs::File::create(&universal_apk_dest_closure)
+            .context("Failed to create universal.apk")?;
+        std::io::copy(&mut zip_entry, &mut out_file).context("Failed to extract universal.apk")?;
+        Ok(())
+    })
+    .await
+    .context("APK extraction task panicked")?
+    .context("Failed to extract universal.apk")?;
 
     // 6. Copy to the same structured path used for regular artifact downloads.
     let apk_name = format!("{stem}.apk");
@@ -118,7 +131,7 @@ pub(crate) async fn convert_aab_to_apk(
     if let Some(parent) = apk_dest.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
-    tokio::fs::copy(tmp.join("universal.apk"), &apk_dest).await?;
+    tokio::fs::copy(&universal_apk_dest, &apk_dest).await?;
 
     Ok(apk_dest)
 }
