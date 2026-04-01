@@ -27,7 +27,11 @@ pub(super) fn draw_app_info(f: &mut Frame, app: &App) {
             layout[0],
         );
         f.render_widget(
-            Paragraph::new(" [Esc] Close").style(Style::default().fg(Color::DarkGray)),
+            Paragraph::new(Line::from(vec![
+                Span::raw(" "),
+                Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+                Span::styled(" Close", Style::default().fg(Color::DarkGray)),
+            ])),
             layout[2],
         );
         return;
@@ -39,7 +43,11 @@ pub(super) fn draw_app_info(f: &mut Frame, app: &App) {
             layout[0],
         );
         f.render_widget(
-            Paragraph::new(" [Esc] Close").style(Style::default().fg(Color::DarkGray)),
+            Paragraph::new(Line::from(vec![
+                Span::raw(" "),
+                Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+                Span::styled(" Close", Style::default().fg(Color::DarkGray)),
+            ])),
             layout[2],
         );
         return;
@@ -85,10 +93,20 @@ pub(super) fn draw_app_info(f: &mut Frame, app: &App) {
     }
 
     f.render_widget(
-        Paragraph::new(format!(
-            " [↑↓/jk] Select  [Enter/y] Copy ID  [PgUp/PgDn] Scroll  [Esc] Close   {end}/{total} ({pct}%)"
-        ))
-        .style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled("[↑↓/jk]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Select  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Enter/y]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Copy ID  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[PgUp/PgDn]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Scroll  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(
+                format!(" Close   {end}/{total} ({pct}%)"),
+                Style::default().fg(Color::DarkGray),
+            ),
+        ])),
         layout[2],
     );
 }
@@ -178,15 +196,18 @@ pub(super) fn draw_settings(f: &mut Frame, app: &App) {
         );
     }
 
-    let hint = if app.settings_loading {
-        ""
+    let hint: Line = if app.settings_loading {
+        Line::from("")
     } else {
-        "  [Enter] Save  [Esc] Cancel"
+        Line::from(vec![
+            Span::raw("  "),
+            Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Save  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Cancel", Style::default().fg(Color::DarkGray)),
+        ])
     };
-    f.render_widget(
-        Paragraph::new(hint).style(Style::default().fg(Color::DarkGray)),
-        layout[6],
-    );
+    f.render_widget(Paragraph::new(hint), layout[6]);
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────

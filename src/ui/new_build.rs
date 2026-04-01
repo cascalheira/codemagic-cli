@@ -59,8 +59,15 @@ fn draw_nb_select_app(f: &mut Frame, app: &App) {
     }
 
     f.render_widget(
-        Paragraph::new(" [↑↓/jk] Select  [Enter] Next  [Esc] Cancel")
-            .style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled("[↑↓/jk]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Select  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Next  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Cancel", Style::default().fg(Color::DarkGray)),
+        ])),
         layout[1],
     );
 }
@@ -144,8 +151,13 @@ fn draw_nb_select_workflow(f: &mut Frame, app: &App) {
             );
         }
         f.render_widget(
-            Paragraph::new(" [Enter] Next  [Esc] Back to list")
-                .style(Style::default().fg(Color::DarkGray)),
+            Paragraph::new(Line::from(vec![
+                Span::raw(" "),
+                Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+                Span::styled(" Next  ", Style::default().fg(Color::DarkGray)),
+                Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+                Span::styled(" Back to list", Style::default().fg(Color::DarkGray)),
+            ])),
             layout[4],
         );
     } else {
@@ -180,8 +192,15 @@ fn draw_nb_select_workflow(f: &mut Frame, app: &App) {
             );
         }
         f.render_widget(
-            Paragraph::new(" [↑↓/jk] Select  [Enter] Next  [Esc] Back")
-                .style(Style::default().fg(Color::DarkGray)),
+            Paragraph::new(Line::from(vec![
+                Span::raw(" "),
+                Span::styled("[↑↓/jk]", Style::default().fg(Color::Yellow)),
+                Span::styled(" Select  ", Style::default().fg(Color::DarkGray)),
+                Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+                Span::styled(" Next  ", Style::default().fg(Color::DarkGray)),
+                Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+                Span::styled(" Back", Style::default().fg(Color::DarkGray)),
+            ])),
             layout[4],
         );
     }
@@ -334,13 +353,20 @@ fn draw_nb_enter_branch(f: &mut Frame, app: &App) {
         );
     }
 
-    let hint = if app.new_build_submitting {
-        ""
+    let hint: Line = if app.new_build_submitting {
+        Line::from("")
     } else {
-        " [type] Filter  [↑↓] Navigate  [Enter] Start Build  [Esc] Back"
+        Line::from(vec![
+            Span::raw(" "),
+            Span::styled("[type]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Filter  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[↑↓]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Navigate  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Start Build  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Back", Style::default().fg(Color::DarkGray)),
+        ])
     };
-    f.render_widget(
-        Paragraph::new(hint).style(Style::default().fg(Color::DarkGray)),
-        layout[6],
-    );
+    f.render_widget(Paragraph::new(hint), layout[6]);
 }

@@ -171,10 +171,17 @@ pub(super) fn draw_build_actions(f: &mut Frame, app: &App) {
         );
     }
 
-    // ── Help hint ──────────────────────────────────────────────────
+    // ── Help hint ──────────────────────────────────────────────────────────────
     f.render_widget(
-        Paragraph::new(" [↑↓/jk] Select  [Enter] Open  [Esc] Close")
-            .style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled("[↑↓/jk]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Select  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Open  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Close", Style::default().fg(Color::DarkGray)),
+        ])),
         layout[4],
     );
 }
@@ -309,8 +316,18 @@ pub(super) fn draw_artifacts(f: &mut Frame, app: &App) {
     }
 
     f.render_widget(
-        Paragraph::new(" [↑↓/jk] Select  [Enter] Download / Convert  [Esc] Back")
-            .style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled("[↑↓/jk]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Select  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+            Span::styled(
+                " Download / Convert  ",
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Back", Style::default().fg(Color::DarkGray)),
+        ])),
         layout[2],
     );
 }
@@ -375,8 +392,15 @@ pub(super) fn draw_log_steps(f: &mut Frame, app: &App) {
     }
 
     f.render_widget(
-        Paragraph::new(" [↑↓/jk] Select  [Enter] View log  [Esc] Back")
-            .style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled("[↑↓/jk]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Select  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+            Span::styled(" View log  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Back", Style::default().fg(Color::DarkGray)),
+        ])),
         layout[1],
     );
 }
@@ -422,11 +446,18 @@ pub(super) fn draw_log_content(f: &mut Frame, app: &App) {
         .checked_div(total)
         .unwrap_or(0) as u16;
     f.render_widget(
-        Paragraph::new(format!(
-            " [↑↓/jk] Scroll  [PgUp/PgDn] Page  [Esc] Back    line {}/{total} ({pct}%)",
-            app.log_scroll + 1
-        ))
-        .style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled("[↑↓/jk]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Scroll  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[PgUp/PgDn]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Page  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(
+                format!(" Back    line {}/{total} ({pct}%)", app.log_scroll + 1),
+                Style::default().fg(Color::DarkGray),
+            ),
+        ])),
         layout[1],
     );
 }

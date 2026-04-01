@@ -216,6 +216,9 @@ pub struct App {
     // ── Internals ──
     pub(crate) api_client: Option<ApiClient>,
     pub(crate) tx: mpsc::Sender<AppMessage>,
+    /// Set to `true` before a background soft-refresh so that the message
+    /// handler merges the result instead of replacing the list.
+    pub(crate) is_soft_refresh: bool,
 }
 
 impl App {
@@ -276,6 +279,7 @@ impl App {
             last_refreshed: None,
             api_client,
             tx,
+            is_soft_refresh: false,
         }
     }
 

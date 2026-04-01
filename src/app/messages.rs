@@ -13,25 +13,67 @@ impl App {
                 self.loading_state = LoadingState::Idle;
                 match result {
                     Ok(response) => {
-                        self.has_more = response.builds.len() >= PAGE_SIZE;
                         for app in response.applications {
                             self.applications.insert(app.id.clone(), app);
                         }
-                        if self.skip == 0 {
+                        if self.skip == 0 && self.is_soft_refresh {
+                            // ── Soft (background) refresh ────────────────────
+                            // Merge the fresh first-page results into the
+                            // existing list so that any extra pages the user
+                            // already loaded are preserved.
+                            self.is_soft_refresh = false;
+
+                            // 1. Collect IDs that are already in the list.
+                            let existing_ids: std::collections::HashSet<String> =
+                                self.builds.iter().map(|b| b.id.clone()).collect();
+
+                            // 2. Update builds that are already visible
+                            //    (e.g. status changes for running builds).
+                            for new_build in &response.builds {
+                                if let Some(b) =
+                                    self.builds.iter_mut().find(|b| b.id == new_build.id)
+                                {
+                                    *b = new_build.clone();
+                                }
+                            }
+
+                            // 3. Prepend builds that are genuinely new (arrived
+                            //    since the last refresh).
+                            let prepend: Vec<_> = response
+                                .builds
+                                .into_iter()
+                                .filter(|b| !existing_ids.contains(&b.id))
+                                .collect();
+
+                            if !prepend.is_empty() {
+                                let prepend_count = prepend.len();
+                                let old = std::mem::take(&mut self.builds);
+                                self.builds = prepend;
+                                self.builds.extend(old);
+                                // Shift the cursor down so it stays on the
+                                // same build row despite the new entries above.
+                                self.selected_index += prepend_count;
+                            }
+
+                            self.last_refreshed = Some(Utc::now());
+                        } else if self.skip == 0 {
+                            // ── Hard (manual / filter) refresh ───────────────
+                            self.has_more = response.builds.len() >= PAGE_SIZE;
                             self.builds = response.builds;
-                            // Clamp selection to the new list length so a
-                            // background soft-refresh doesn't jump the cursor
-                            // to row 0 when the user is scrolled down.
+                            // Clamp selection so it stays in bounds.
                             self.selected_index =
                                 self.selected_index.min(self.builds.len().saturating_sub(1));
                             self.last_refreshed = Some(Utc::now());
                         } else {
+                            // ── Load-more page append ────────────────────────
+                            self.has_more = response.builds.len() >= PAGE_SIZE;
                             self.builds.extend(response.builds);
                         }
                         self.update_available_workflows();
                         self.status_message = None;
                     }
                     Err(e) => {
+                        self.is_soft_refresh = false;
                         let msg = e.to_string();
                         self.loading_state = LoadingState::Error(msg.clone());
                         self.status_message = Some(msg);

@@ -5,12 +5,18 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
 
     let layout = Layout::vertical([
         Constraint::Length(1), // title bar
-        Constraint::Length(1), // filter bar
+        Constraint::Length(1), // filter + status bar
         Constraint::Fill(1),   // table
-        Constraint::Length(1), // status bar
         Constraint::Length(1), // help bar
     ])
     .split(area);
+
+    // Split the filter+status row into left (filter) and right (status)
+    let filter_status = Layout::horizontal([
+        Constraint::Fill(1), // filter (left)
+        Constraint::Fill(1), // status (right)
+    ])
+    .split(layout[1]);
 
     // ── Title bar ──
     f.render_widget(
@@ -24,7 +30,7 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
         layout[0],
     );
 
-    // ── Filter bar ──
+    // ── Filter bar (left) ──
     let filter_label = app.active_workflow_name();
     let filter_color = if app.workflow_filter.is_some() {
         Color::Yellow
@@ -35,39 +41,52 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
         Paragraph::new(Line::from(vec![
             Span::styled(" Filter: ", Style::default().fg(Color::DarkGray)),
             Span::styled(filter_label, Style::default().fg(filter_color)),
-            Span::styled("  [f] change", Style::default().fg(Color::DarkGray)),
+            Span::styled("  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[f]", Style::default().fg(Color::Yellow)),
+            Span::styled(" change", Style::default().fg(Color::DarkGray)),
         ])),
-        layout[1],
+        filter_status[0],
     );
 
-    // ── Builds table ──
-    draw_builds_table(f, app, layout[2]);
-
-    // ── Status bar ──
-    let status = match &app.loading_state {
+    // ── Status bar (right side of filter row) ──
+    let status_right = match &app.loading_state {
         LoadingState::Loading => Line::from(vec![Span::styled(
-            " Loading…",
+            "Loading… ",
             Style::default()
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::ITALIC),
         )]),
         LoadingState::Error(_) => Line::from(vec![Span::styled(
-            format!(" ✗ {}", app.status_message.as_deref().unwrap_or("Error")),
+            format!("✗ {}  ", app.status_message.as_deref().unwrap_or("Error")),
             Style::default().fg(Color::Red),
         )]),
+        LoadingState::Idle if app.builds.is_empty() => Line::from(Span::styled(
+            "No builds found.  ",
+            Style::default().fg(Color::DarkGray),
+        )),
         LoadingState::Idle => {
             let total = app.builds.len();
-            let more = if app.has_more {
-                " (more available)"
-            } else {
-                ""
-            };
             let live = app.running_build_count();
 
             let mut spans = vec![Span::styled(
-                format!(" {total} builds loaded{more}"),
+                format!("{total} builds"),
                 Style::default().fg(Color::DarkGray),
             )];
+
+            if app.has_more {
+                spans.push(Span::styled("   ", Style::default().fg(Color::DarkGray)));
+                spans.push(Span::styled("[l]", Style::default().fg(Color::Yellow)));
+                spans.push(Span::styled(
+                    " load more",
+                    Style::default().fg(Color::DarkGray),
+                ));
+            } else {
+                spans.push(Span::styled(
+                    "   · all loaded",
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+
             if live > 0 {
                 let s = spinner_frame();
                 spans.push(Span::styled(
@@ -79,14 +98,22 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
             }
             if let Some(ts) = app.last_refreshed {
                 spans.push(Span::styled(
-                    format!("   ↻ {}", format_time_ago(ts)),
+                    format!("   ↻ {}  ", format_time_ago(ts)),
                     Style::default().fg(Color::DarkGray),
                 ));
+            } else {
+                spans.push(Span::styled("  ", Style::default()));
             }
             Line::from(spans)
         }
     };
-    f.render_widget(Paragraph::new(status), layout[3]);
+    f.render_widget(
+        Paragraph::new(status_right).alignment(Alignment::Right),
+        filter_status[1],
+    );
+
+    // ── Builds table ──
+    draw_builds_table(f, app, layout[2]);
 
     // ── Help bar ──
     f.render_widget(
@@ -95,10 +122,6 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
             Span::raw(" Navigate  "),
             Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
             Span::raw(" Actions  "),
-            Span::styled("[f]", Style::default().fg(Color::Yellow)),
-            Span::raw(" Filter  "),
-            Span::styled("[l]", Style::default().fg(Color::Yellow)),
-            Span::raw(" Load More  "),
             Span::styled("[r]", Style::default().fg(Color::Yellow)),
             Span::raw(" Refresh  "),
             Span::styled("[n]", Style::default().fg(Color::Yellow)),
@@ -110,7 +133,7 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
             Span::styled("[q]", Style::default().fg(Color::Yellow)),
             Span::raw(" Quit"),
         ])),
-        layout[4],
+        layout[3],
     );
 }
 
@@ -150,7 +173,7 @@ pub(super) fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
     .height(1)
     .style(Style::default().bg(Color::DarkGray));
 
-    let mut rows: Vec<Row> = app
+    let rows: Vec<Row> = app
         .builds
         .iter()
         .map(|build| {
@@ -179,40 +202,6 @@ pub(super) fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
             .height(1)
         })
         .collect();
-
-    // Append a non-selectable footer row for load-more hints.
-    let footer_row = match &app.loading_state {
-        LoadingState::Loading => Some(
-            Row::new([Cell::from("  Loading more builds…").style(
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::ITALIC),
-            )])
-            .height(1),
-        ),
-        _ if app.has_more => Some(
-            Row::new([Cell::from("  Press [l] to load more builds")
-                .style(Style::default().fg(Color::DarkGray))])
-            .height(1),
-        ),
-        _ if !app.builds.is_empty() => Some(
-            Row::new([Cell::from("  — End of list —").style(Style::default().fg(Color::DarkGray))])
-                .height(1),
-        ),
-        _ => None,
-    };
-    if let Some(row) = footer_row {
-        rows.push(row);
-    }
-
-    // Show an empty-state message when there are no builds and we're done loading.
-    if app.builds.is_empty() && matches!(app.loading_state, LoadingState::Idle) {
-        rows.push(
-            Row::new([Cell::from("  No builds found.")])
-                .height(1)
-                .style(Style::default().fg(Color::DarkGray)),
-        );
-    }
 
     let widths = [
         Constraint::Length(13), // status

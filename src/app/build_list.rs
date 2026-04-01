@@ -60,7 +60,7 @@ impl App {
             return;
         }
         self.skip = 0;
-        self.has_more = true;
+        self.is_soft_refresh = true;
         self.fetch_builds();
     }
 
