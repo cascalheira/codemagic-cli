@@ -174,6 +174,11 @@ pub(super) fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
                 .fg(Color::White)
                 .add_modifier(Modifier::BOLD),
         ),
+        Cell::from("Duration").style(
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        ),
     ])
     .height(1)
     .style(Style::default().bg(Color::DarkGray));
@@ -196,6 +201,14 @@ pub(super) fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
                 .map(|i| format!("#{i}"))
                 .unwrap_or_default();
 
+            let duration = match (build.started_at, build.finished_at) {
+                (Some(s), Some(e)) => format_duration((e - s).num_seconds().max(0)),
+                (Some(s), None) if is_running_status(&build.status) => {
+                    format_duration((Utc::now() - s).num_seconds().max(0))
+                }
+                _ => "-".to_string(),
+            };
+
             Row::new([
                 Cell::from(status_text).style(status_style),
                 Cell::from(app_name.to_string()),
@@ -203,6 +216,7 @@ pub(super) fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
                 Cell::from(git_ref),
                 Cell::from(build_num).style(Style::default().fg(Color::DarkGray)),
                 Cell::from(started),
+                Cell::from(duration).style(Style::default().fg(Color::DarkGray)),
             ])
             .height(1)
         })
@@ -212,9 +226,10 @@ pub(super) fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
         Constraint::Length(13), // status
         Constraint::Fill(2),    // app name
         Constraint::Fill(1),    // workflow
-        Constraint::Length(18), // branch/tag
+        Constraint::Length(16), // branch/tag
         Constraint::Length(5),  // build #
         Constraint::Length(11), // started
+        Constraint::Length(9),  // duration
     ];
 
     let table = Table::new(rows, widths)

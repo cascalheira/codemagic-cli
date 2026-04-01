@@ -139,6 +139,18 @@ pub(super) fn strip_ansi(s: &str) -> String {
     out
 }
 
+/// Formats a duration in seconds as a compact human-readable string.
+/// e.g. 75 → "1m 15s", 3725 → "1h 02m", 0 → "0s".
+pub(super) fn format_duration(secs: i64) -> String {
+    if secs < 60 {
+        format!("{secs}s")
+    } else if secs < 3600 {
+        format!("{}m {:02}s", secs / 60, secs % 60)
+    } else {
+        format!("{}h {:02}m", secs / 3600, (secs % 3600) / 60)
+    }
+}
+
 /// Shared helper: create a centred overlay rect and clear the background.
 pub(super) fn centered_popup(f: &mut Frame, width: u16, height: u16) -> Rect {
     let area = f.area();
