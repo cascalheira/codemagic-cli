@@ -330,7 +330,7 @@ dependencies = [
 
 [[package]]
 name = "codemagic-cli"
-version = "1.1.3"
+version = "1.2.0"
 dependencies = [
  "anyhow",
  "arboard",

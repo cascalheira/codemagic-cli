@@ -217,11 +217,11 @@ impl ApiClient {
         Ok(data.build_id)
     }
 
-    /// Cancels a running build via `DELETE /builds/{buildId}`.
+    /// Cancels a running build via `POST /builds/{buildId}/cancel`.
     pub async fn cancel_build(&self, build_id: &str) -> Result<()> {
         let response = self
             .client
-            .delete(format!("{API_BASE_URL}/builds/{build_id}"))
+            .post(format!("{API_BASE_URL}/builds/{build_id}/cancel"))
             .header("x-auth-token", &self.api_token)
             .send()
             .await
