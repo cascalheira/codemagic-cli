@@ -171,6 +171,8 @@ pub struct App {
     pub log_lines: Vec<String>,
     pub log_scroll: usize,
     pub log_loading: bool,
+    /// Whether the log viewer wraps long lines (`[w]` toggle).
+    pub log_wrap: bool,
 
     // Status / feedback lines shown inside the popups.
     pub artifact_message: Option<String>,
@@ -265,6 +267,7 @@ impl App {
             new_build_branch_list_index: 0,
             new_build_error: None,
             new_build_submitting: false,
+            log_wrap: false,
             app_info_open: false,
             app_info_scroll: 0,
             app_info_selected: 0,

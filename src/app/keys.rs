@@ -140,6 +140,10 @@ impl App {
                     let max = self.log_lines.len().saturating_sub(1);
                     self.log_scroll = (self.log_scroll + 20).min(max);
                 }
+                // Toggle word-wrap.
+                KeyCode::Char('w') => {
+                    self.log_wrap = !self.log_wrap;
+                }
                 // Jump to top / bottom.
                 KeyCode::Char('g') => {
                     self.log_scroll = 0;

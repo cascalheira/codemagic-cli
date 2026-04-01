@@ -436,10 +436,11 @@ pub(super) fn draw_log_content(f: &mut Frame, app: &App) {
         })
         .collect();
 
-    f.render_widget(
-        Paragraph::new(lines).style(Style::default().fg(Color::White)),
-        layout[0],
-    );
+    let mut para = Paragraph::new(lines).style(Style::default().fg(Color::White));
+    if app.log_wrap {
+        para = para.wrap(Wrap { trim: false });
+    }
+    f.render_widget(para, layout[0]);
 
     let total = app.log_lines.len();
     let pct = (((app.log_scroll + visible_h).min(total)) * 100)
@@ -454,6 +455,15 @@ pub(super) fn draw_log_content(f: &mut Frame, app: &App) {
             Span::styled(" Page  ", Style::default().fg(Color::DarkGray)),
             Span::styled("[g/G]", Style::default().fg(Color::Yellow)),
             Span::styled(" Top/Bottom  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[w]", Style::default().fg(Color::Yellow)),
+            Span::styled(
+                if app.log_wrap {
+                    " Wrap:on  "
+                } else {
+                    " Wrap:off  "
+                },
+                Style::default().fg(Color::DarkGray),
+            ),
             Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
             Span::styled(
                 format!(" Back    line {}/{total} ({pct}%)", app.log_scroll + 1),
