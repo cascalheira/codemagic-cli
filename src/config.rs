@@ -6,6 +6,14 @@ use std::path::PathBuf;
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct Config {
     pub api_token: String,
+    /// How often to poll running builds for live status updates (seconds).
+    /// Defaults to 5 when absent.
+    #[serde(default)]
+    pub poll_interval_secs: Option<u64>,
+    /// How often to silently auto-refresh the full builds list (seconds).
+    /// Defaults to 30 when absent.
+    #[serde(default)]
+    pub refresh_interval_secs: Option<u64>,
 }
 
 /// Returns the path to the config file: `~/.config/codemagic-cli/config.toml`.

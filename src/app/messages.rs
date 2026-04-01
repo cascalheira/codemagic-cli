@@ -88,6 +88,7 @@ impl App {
                         let token = self.api_token_input.trim().to_string();
                         let cfg = Config {
                             api_token: token.clone(),
+                            ..Default::default()
                         };
                         if let Err(e) = config::save_config(&cfg) {
                             self.onboarding_error = Some(format!("Could not save config: {e}"));
@@ -211,6 +212,7 @@ impl App {
                         let token = self.settings_token_input.trim().to_string();
                         let cfg = Config {
                             api_token: token.clone(),
+                            ..Default::default()
                         };
                         if let Err(e) = config::save_config(&cfg) {
                             self.settings_error = Some(format!("Failed to save config: {e}"));

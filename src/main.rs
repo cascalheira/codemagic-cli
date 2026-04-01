@@ -100,6 +100,16 @@ async fn run_tui() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     let saved_config = config::load_config().unwrap_or(None);
+    let poll_secs = saved_config
+        .as_ref()
+        .and_then(|c| c.poll_interval_secs)
+        .unwrap_or(5)
+        .max(1); // guard against 0
+    let refresh_secs = saved_config
+        .as_ref()
+        .and_then(|c| c.refresh_interval_secs)
+        .unwrap_or(30)
+        .max(5); // guard against unreasonably short intervals
     let (tx, mut rx) = mpsc::channel::<AppMessage>(64);
     let mut app = App::new(tx, saved_config);
 
@@ -116,7 +126,15 @@ async fn run_tui() -> Result<()> {
         }
     });
 
-    let result = event_loop(&mut terminal, &mut app, &mut rx, &mut event_rx).await;
+    let result = event_loop(
+        &mut terminal,
+        &mut app,
+        &mut rx,
+        &mut event_rx,
+        poll_secs,
+        refresh_secs,
+    )
+    .await;
 
     disable_raw_mode()?;
     execute!(
@@ -136,16 +154,18 @@ async fn event_loop(
     app: &mut App,
     rx: &mut mpsc::Receiver<AppMessage>,
     event_rx: &mut mpsc::Receiver<Event>,
+    poll_secs: u64,
+    refresh_secs: u64,
 ) -> Result<()> {
     let mut redraw_tick = tokio::time::interval(Duration::from_millis(250));
     redraw_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-    let mut poll_tick = tokio::time::interval(Duration::from_secs(5));
+    let mut poll_tick = tokio::time::interval(Duration::from_secs(poll_secs));
     poll_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     poll_tick.tick().await;
 
-    // Full builds-list refresh in the background every 30 seconds.
-    let mut auto_refresh_tick = tokio::time::interval(Duration::from_secs(30));
+    // Full builds-list refresh in the background.
+    let mut auto_refresh_tick = tokio::time::interval(Duration::from_secs(refresh_secs));
     auto_refresh_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     auto_refresh_tick.tick().await; // skip the immediate first tick
 
