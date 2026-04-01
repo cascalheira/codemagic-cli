@@ -44,6 +44,20 @@ jobs:
             target: aarch64-unknown-linux-gnu
             artifact: codemagic-cli-linux-aarch64
 
+          # ── Windows ──────────────────────────────────────────────────────────
+          # Both Windows jobs run on the x86-64 hosted runner.
+          # ARM64 is cross-compiled via MSVC's built-in ARM64 toolchain — no
+          # extra setup is required because Visual Studio ships the ARM64 CRT.
+          - name: Windows · x86-64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: codemagic-cli-windows-x86_64
+
+          - name: Windows · arm64 (cross-compiled)
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact: codemagic-cli-windows-aarch64
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -72,7 +86,10 @@ jobs:
 
       # Reduces binary size — safe for distribution builds.
       # Must happen BEFORE signing — stripping after signing invalidates the signature.
+      # Skipped on Windows: the MSVC linker produces PE binaries that strip(1)
+      # cannot safely process; debug info is simply not embedded in release builds.
       - name: Strip debug symbols
+        if: runner.os != 'Windows'
         run: strip target/${{ matrix.target }}/release/codemagic-cli
 
       # ── macOS code signing ────────────────────────────────────────────────
@@ -152,29 +169,41 @@ jobs:
         if: runner.os == 'macOS' && always()
         run: security delete-keychain build.keychain || true
 
-      # Pack the binary into a .tar.gz and generate a SHA-256 checksum.
+      # Pack the binary and generate a SHA-256 checksum.
+      # • Windows  → codemagic-cli.exe  packaged as .zip
+      # • macOS    → codemagic-cli      packaged as .tar.gz  (shasum)
+      # • Linux    → codemagic-cli      packaged as .tar.gz  (sha256sum)
       - name: Package
         shell: bash
         run: |
-          cp target/${{ matrix.target }}/release/codemagic-cli codemagic-cli
-          tar -czf "${{ matrix.artifact }}.tar.gz" codemagic-cli
-
-          # sha256sum command differs between macOS and GNU/Linux
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            shasum -a 256 "${{ matrix.artifact }}.tar.gz" \
-              > "${{ matrix.artifact }}.tar.gz.sha256"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp "target/${{ matrix.target }}/release/codemagic-cli.exe" codemagic-cli.exe
+            powershell -Command "
+              Compress-Archive \
+                -Path 'codemagic-cli.exe' \
+                -DestinationPath '${{ matrix.artifact }}.zip'"
+            sha256sum "${{ matrix.artifact }}.zip" \
+              > "${{ matrix.artifact }}.zip.sha256"
           else
-            sha256sum "${{ matrix.artifact }}.tar.gz" \
-              > "${{ matrix.artifact }}.tar.gz.sha256"
+            cp target/${{ matrix.target }}/release/codemagic-cli codemagic-cli
+            tar -czf "${{ matrix.artifact }}.tar.gz" codemagic-cli
+
+            # sha256sum command differs between macOS and GNU/Linux
+            if [[ "$RUNNER_OS" == "macOS" ]]; then
+              shasum -a 256 "${{ matrix.artifact }}.tar.gz" \
+                > "${{ matrix.artifact }}.tar.gz.sha256"
+            else
+              sha256sum "${{ matrix.artifact }}.tar.gz" \
+                > "${{ matrix.artifact }}.tar.gz.sha256"
+            fi
           fi
 
       - name: Upload build artefact
         uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
-          path: |
-            ${{ matrix.artifact }}.tar.gz
-            ${{ matrix.artifact }}.tar.gz.sha256
+          # Glob captures both .tar.gz/.tar.gz.sha256 (Unix) and .zip/.zip.sha256 (Windows)
+          path: "${{ matrix.artifact }}.*"
           if-no-files-found: error
 
   # ── Publish a GitHub Release (tag pushes only) ────────────────────────────
