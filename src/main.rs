@@ -4,7 +4,9 @@ use std::time::Duration;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
+    event::{
+        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+    },
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -170,7 +172,7 @@ async fn event_loop(
 
 fn handle_event(app: &mut App, event: Event) {
     match event {
-        Event::Key(key) => {
+        Event::Key(key) if key.kind == KeyEventKind::Press => {
             if (key.code == KeyCode::Char('c') || key.code == KeyCode::Char('d'))
                 && key.modifiers.contains(KeyModifiers::CONTROL)
             {
