@@ -59,7 +59,7 @@ pub(super) fn status_cell(status: &str) -> (String, Style) {
             "preparing" => "Preparing",
             "fetching" => "Fetching ",
             "testing" => "Testing  ",
-            "publishing" => "Publishng",
+            "publishing" => "Publishing",
             "finishing" => "Finishing",
             other => other,
         };
