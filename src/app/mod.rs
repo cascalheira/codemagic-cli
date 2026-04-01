@@ -467,6 +467,13 @@ impl App {
 pub fn is_running_status(status: &str) -> bool {
     matches!(
         status,
-        "building" | "queued" | "preparing" | "fetching" | "testing" | "publishing" | "finishing"
+        "building"
+            | "queued"
+            | "preparing"
+            | "fetching"
+            | "initializing"
+            | "testing"
+            | "publishing"
+            | "finishing"
     )
 }

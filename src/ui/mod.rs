@@ -56,13 +56,14 @@ pub(super) fn status_cell(status: &str) -> (String, Style) {
     if is_running_status(status) {
         let s = spinner_frame();
         let label = match status {
-            "building" => "Building ",
-            "queued" => "Queued   ",
-            "preparing" => "Preparing",
-            "fetching" => "Fetching ",
-            "testing" => "Testing  ",
-            "publishing" => "Publishing",
-            "finishing" => "Finishing",
+            "building" => "Building    ",
+            "queued" => "Queued      ",
+            "preparing" => "Preparing   ",
+            "fetching" => "Fetching    ",
+            "initializing" => "Initializing",
+            "testing" => "Testing     ",
+            "publishing" => "Publishing  ",
+            "finishing" => "Finishing   ",
             other => other,
         };
         let style = if status == "building" {

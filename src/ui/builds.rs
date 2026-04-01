@@ -227,7 +227,7 @@ pub(super) fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
         .collect();
 
     let widths = [
-        Constraint::Length(13), // status
+        Constraint::Length(15), // status
         Constraint::Fill(2),    // app name
         Constraint::Fill(1),    // workflow
         Constraint::Length(16), // branch/tag
