@@ -155,8 +155,9 @@ pub(super) fn draw_settings(f: &mut Frame, app: &App) {
         Style::default().fg(Color::Yellow)
     };
 
+    let masked_settings = "•".repeat(app.settings_token_input.len());
     f.render_widget(
-        Paragraph::new(app.settings_token_input.as_str())
+        Paragraph::new(masked_settings.as_str())
             .block(
                 Block::default()
                     .borders(Borders::ALL)
@@ -166,7 +167,7 @@ pub(super) fn draw_settings(f: &mut Frame, app: &App) {
         layout[3],
     );
 
-    // Cursor
+    // Cursor — use the real token length so the cursor tracks correctly.
     if !app.settings_loading {
         let cx = layout[3].x + 1 + app.settings_token_input.len() as u16;
         let cy = layout[3].y + 1;

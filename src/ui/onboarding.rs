@@ -81,7 +81,8 @@ pub(super) fn draw_onboarding(f: &mut Frame, app: &App) {
     } else {
         Style::default().fg(Color::Yellow)
     };
-    let input = Paragraph::new(app.api_token_input.as_str())
+    let masked = "•".repeat(app.api_token_input.len());
+    let input = Paragraph::new(masked.as_str())
         .block(
             Block::default()
                 .title(" API Token ")
@@ -92,6 +93,7 @@ pub(super) fn draw_onboarding(f: &mut Frame, app: &App) {
     f.render_widget(input, rows[4]);
 
     // Show cursor inside the input box when not loading.
+    // Use the real token length so the cursor tracks correctly.
     if !app.onboarding_loading {
         let cursor_x = rows[4].x + 1 + app.api_token_input.len() as u16;
         let cursor_y = rows[4].y + 1;
