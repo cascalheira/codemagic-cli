@@ -384,9 +384,16 @@ pub(super) fn draw_log_steps(f: &mut Frame, app: &App) {
                 .iter()
                 .map(|step| {
                     let (icon, style) = step_status_icon(step);
+                    // Dim the step name when no log is available yet so that
+                    // steps you can actually open stand out at a glance.
+                    let name_style = if step.log_url.is_some() {
+                        Style::default()
+                    } else {
+                        Style::default().fg(Color::DarkGray)
+                    };
                     ListItem::new(Line::from(vec![
                         Span::styled(format!(" {icon} "), style),
-                        Span::raw(step.name.clone()),
+                        Span::styled(step.name.clone(), name_style),
                     ]))
                 })
                 .collect();
@@ -492,13 +499,41 @@ pub(super) fn draw_log_content(f: &mut Frame, app: &App) {
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 fn step_status_icon(step: &BuildAction) -> (&'static str, Style) {
+    let has_log = step.log_url.is_some();
     match step.status.as_deref() {
-        Some("finished") => ("✓", Style::default().fg(Color::Green)),
-        Some("failed") => ("✗", Style::default().fg(Color::Red)),
-        Some("building") => ("●", Style::default().fg(Color::Yellow)),
+        // Completed steps: bright when a log is available, dimmed when not.
+        Some("finished") => (
+            "✓",
+            Style::default().fg(if has_log {
+                Color::Green
+            } else {
+                Color::DarkGray
+            }),
+        ),
+        Some("failed") => (
+            "✗",
+            Style::default().fg(if has_log { Color::Red } else { Color::DarkGray }),
+        ),
+        // Active step: filled circle when a log stream is already available,
+        // hollow dashed circle when the log hasn't appeared yet.
+        Some("building") => {
+            if has_log {
+                ("●", Style::default().fg(Color::Yellow))
+            } else {
+                ("◌", Style::default().fg(Color::Yellow))
+            }
+        }
         Some("skipped") => ("⏭", Style::default().fg(Color::DarkGray)),
         Some("canceled") | Some("cancelled") => ("⊘", Style::default().fg(Color::DarkGray)),
-        _ => ("○", Style::default().fg(Color::DarkGray)),
+        // Pending / unrecognised status: hollow circle, dimmed when no log.
+        _ => (
+            "○",
+            Style::default().fg(if has_log {
+                Color::White
+            } else {
+                Color::DarkGray
+            }),
+        ),
     }
 }
 
