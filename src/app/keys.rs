@@ -7,6 +7,16 @@ impl App {
         match self.screen {
             Screen::Onboarding => self.handle_onboarding_key(key),
             Screen::Builds => {
+                // Help popup intercepts everything; any of these keys closes it.
+                if self.help_open {
+                    match key.code {
+                        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') => {
+                            self.help_open = false
+                        }
+                        _ => {}
+                    }
+                    return;
+                }
                 if self.app_info_open {
                     self.handle_app_info_key(key);
                 } else if self.settings_open {
@@ -56,6 +66,7 @@ impl App {
             KeyCode::Char('l') => self.load_more(),
             KeyCode::Char('r') => self.refresh(),
             KeyCode::Char('o') => self.open_selected_build_in_browser(),
+            KeyCode::Char('?') => self.help_open = true,
             _ => {}
         }
     }

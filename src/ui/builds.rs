@@ -137,6 +137,8 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
             Span::raw(" Open in Browser  "),
             Span::styled("[s]", Style::default().fg(Color::Yellow)),
             Span::raw(" Settings  "),
+            Span::styled("[?]", Style::default().fg(Color::Yellow)),
+            Span::raw(" Help  "),
             Span::styled("[q]", Style::default().fg(Color::Yellow)),
             Span::raw(" Quit"),
         ])),

@@ -111,7 +111,95 @@ pub(super) fn draw_app_info(f: &mut Frame, app: &App) {
     );
 }
 
-// ─── Settings popup ───────────────────────────────────────────────────────────
+// ─── Help popup ─────────────────────────────────────────────────────────────────
+
+pub(super) fn draw_help(f: &mut Frame, _app: &App) {
+    let area = centered_popup(f, 62, 36);
+    let block = popup_block("Key Bindings — ?");
+    let inner = block.inner(area).inner(Margin {
+        horizontal: 1,
+        vertical: 0,
+    });
+    f.render_widget(block, area);
+
+    let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(inner);
+
+    /// Small helper: render a section header line.
+    fn section(title: &str) -> Line<'static> {
+        Line::from(Span::styled(
+            title.to_string(),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ))
+    }
+
+    /// Small helper: render one keybinding row.
+    fn row(keys: &str, desc: &str) -> Line<'static> {
+        Line::from(vec![
+            Span::styled(format!("  {keys:<18}"), Style::default().fg(Color::Yellow)),
+            Span::styled(desc.to_string(), Style::default().fg(Color::White)),
+        ])
+    }
+
+    fn separator() -> Line<'static> {
+        Line::from(Span::raw(""))
+    }
+
+    let lines: Vec<Line> = vec![
+        section("Builds List"),
+        row("↑/k  ↓/j", "Navigate builds"),
+        row("Enter", "Open Build Actions"),
+        row("n", "New Build wizard"),
+        row("f", "Workflow filter"),
+        row("l", "Load more builds"),
+        row("r", "Refresh list"),
+        row("i", "App & Workflow IDs"),
+        row("o", "Open build in browser"),
+        row("s", "Settings"),
+        row("q / Esc", "Quit"),
+        separator(),
+        section("Build Actions Popup"),
+        row("↑/k  ↓/j", "Navigate actions"),
+        row("Enter", "Open action"),
+        row("Esc", "Close"),
+        separator(),
+        section("Artifacts"),
+        row("↑/k  ↓/j", "Navigate"),
+        row("Enter", "Download / Convert→APK"),
+        row("Esc", "Back"),
+        separator(),
+        section("Log Viewer"),
+        row("↑/k  ↓/j", "Scroll one line"),
+        row("PgUp / PgDn", "Scroll 20 lines"),
+        row("g / G", "Jump to top / bottom"),
+        row("w", "Toggle word-wrap"),
+        row("Esc", "Back to step list"),
+        separator(),
+        section("New Build Wizard"),
+        row("↑/k  ↓/j", "Navigate"),
+        row("Enter", "Next step / Start build"),
+        row("type / Backspace", "Filter branches (step 3)"),
+        row("Esc", "Back / Cancel"),
+        separator(),
+        section("Any screen"),
+        row("?", "Toggle this help popup"),
+        row("Ctrl-C / Ctrl-D", "Force quit"),
+    ];
+
+    f.render_widget(Paragraph::new(lines), layout[0]);
+
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled("[? / q / Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Close", Style::default().fg(Color::DarkGray)),
+        ])),
+        layout[1],
+    );
+}
+
+// ─── Settings popup ─────────────────────────────────────────────────────────────
 
 pub(super) fn draw_settings(f: &mut Frame, app: &App) {
     let area = centered_popup(f, 60, 14);

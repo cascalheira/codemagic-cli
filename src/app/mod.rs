@@ -200,6 +200,9 @@ pub struct App {
     pub new_build_error: Option<String>,
     pub new_build_submitting: bool,
 
+    // ── Help popup ──
+    pub help_open: bool,
+
     // ── App / workflow ID browser ──
     pub app_info_open: bool,
     pub app_info_scroll: usize,
@@ -273,6 +276,7 @@ impl App {
             new_build_submitting: false,
             cancel_message: None,
             log_wrap: false,
+            help_open: false,
             app_info_open: false,
             app_info_scroll: 0,
             app_info_selected: 0,

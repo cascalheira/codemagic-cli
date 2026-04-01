@@ -27,7 +27,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         Screen::Onboarding => onboarding::draw_onboarding(f, app),
         Screen::Builds => {
             builds::draw_builds(f, app);
-            if app.app_info_open {
+            if app.help_open {
+                dialogs::draw_help(f, app);
+            } else if app.app_info_open {
                 dialogs::draw_app_info(f, app);
             } else if app.settings_open {
                 dialogs::draw_settings(f, app);
