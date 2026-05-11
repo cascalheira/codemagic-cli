@@ -48,14 +48,17 @@ $Version = $env:VERSION
 if (-not $Version) {
     Write-Host "Fetching latest release info from GitHub..."
     try {
-        # GitHub redirects /releases/latest to the versioned URL; read the final URL.
-        $Response = Invoke-WebRequest `
-            -Uri "https://github.com/$Repo/releases/latest" `
-            -MaximumRedirection 10 `
-            -UseBasicParsing
-        $Version = $Response.BaseResponse.RequestMessage.RequestUri.Segments[-1]
+        # Use the GitHub API — returns JSON with a "tag_name" field; no redirect gymnastics needed.
+        $Release = Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/$Repo/releases/latest" `
+            -Headers @{ "User-Agent" = "codemagic-cli-installer" }
+        $Version = $Release.tag_name
     } catch {
         Write-Error "Could not determine the latest release version: $_"
+        exit 1
+    }
+    if (-not $Version) {
+        Write-Error "GitHub API returned an empty tag_name."
         exit 1
     }
 }
