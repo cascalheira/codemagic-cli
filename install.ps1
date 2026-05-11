@@ -47,18 +47,24 @@ $AssetName = "codemagic-cli-windows-${ArchName}.zip"
 $Version = $env:VERSION
 if (-not $Version) {
     Write-Host "Fetching latest release info from GitHub..."
+    # Use the GitHub API — returns JSON with a "tag_name" field.
+    $ApiUrl = "https://api.github.com/repos/$Repo/releases/latest"
     try {
-        # Use the GitHub API — returns JSON with a "tag_name" field; no redirect gymnastics needed.
-        $Release = Invoke-RestMethod `
-            -Uri "https://api.github.com/repos/$Repo/releases/latest" `
-            -Headers @{ "User-Agent" = "codemagic-cli-installer" }
-        $Version = $Release.tag_name
+        $Json = Invoke-WebRequest `
+            -Uri $ApiUrl `
+            -UseBasicParsing `
+            -Headers @{ "User-Agent" = "codemagic-cli-installer"; "Accept" = "application/json" } `
+            | Select-Object -ExpandProperty Content
+        $Version = ($Json | ConvertFrom-Json).tag_name
     } catch {
-        Write-Error "Could not determine the latest release version: $_"
+        $ErrMsg = $_.Exception.Message
+        Write-Host "ERROR: Could not fetch release info from $ApiUrl" -ForegroundColor Red
+        Write-Host "       $ErrMsg" -ForegroundColor Red
         exit 1
     }
     if (-not $Version) {
-        Write-Error "GitHub API returned an empty tag_name."
+        Write-Host "ERROR: GitHub API returned an empty tag_name. Response was:" -ForegroundColor Red
+        Write-Host $Json -ForegroundColor Red
         exit 1
     }
 }
