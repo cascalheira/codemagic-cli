@@ -16,6 +16,10 @@ A terminal UI and CLI tool for [Codemagic CI/CD](https://codemagic.io), built wi
 
 ---
 
+![Codemagic CLI — Builds list](screenshots/screenshot.png)
+
+---
+
 ## Installation
 
 ### macOS & Linux — one-liner
