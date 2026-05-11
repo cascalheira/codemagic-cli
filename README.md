@@ -18,15 +18,80 @@ A terminal UI and CLI tool for [Codemagic CI/CD](https://codemagic.io), built wi
 
 ## Installation
 
-### Prerequisites
+### macOS & Linux — one-liner
 
-- [Rust](https://rustup.rs) 1.85+ (`rustup update stable`)
-- macOS, Linux, or Windows (tested on macOS)
+Paste this in your terminal. The script auto-detects your OS and CPU architecture
+(x86-64 or arm64), downloads the matching binary from the latest GitHub release,
+verifies the SHA-256 checksum, and installs to `/usr/local/bin`.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.sh | sh
+```
+
+**Options** — set environment variables before the pipe:
+
+```bash
+# Install a specific version
+VERSION=v1.3.0 curl -fsSL https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.sh | sh
+
+# Install to a custom directory (no sudo needed if you own it)
+INSTALL_DIR=~/.local/bin curl -fsSL https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.sh | sh
+```
+
+---
+
+### Windows — PowerShell
+
+Open PowerShell and run:
+
+```powershell
+irm https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.ps1 | iex
+```
+
+The script detects your CPU architecture (x86-64 or arm64), downloads the
+matching `.zip` from the latest GitHub release, verifies the SHA-256 checksum,
+extracts the binary to `%LOCALAPPDATA%\codemagic-cli`, and adds that directory
+to your user `PATH` automatically.
+
+**Options** — set environment variables before the pipe:
+
+```powershell
+# Install a specific version
+$env:VERSION = "v1.3.0"; irm https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.ps1 | iex
+
+# Install to a custom directory
+$env:INSTALL_DIR = "C:\Tools"; irm https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.ps1 | iex
+```
+
+> **Execution-policy note:** if you see a security error, run
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, then retry.
+
+---
+
+### Manual download
+
+Pre-built binaries for every platform are attached to every
+[GitHub release](https://github.com/cascalheira/codemagic-cli/releases/latest):
+
+| File | Platform |
+|------|----------|
+| `codemagic-cli-macos-aarch64.tar.gz` | macOS Apple Silicon |
+| `codemagic-cli-macos-x86_64.tar.gz` | macOS Intel |
+| `codemagic-cli-linux-x86_64.tar.gz` | Linux x86-64 |
+| `codemagic-cli-linux-aarch64.tar.gz` | Linux arm64 |
+| `codemagic-cli-windows-x86_64.zip` | Windows x86-64 |
+| `codemagic-cli-windows-aarch64.zip` | Windows arm64 |
+
+Each asset is accompanied by a `.sha256` checksum file.
+
+---
 
 ### Build from source
 
+**Prerequisites:** [Rust](https://rustup.rs) 1.85+ (`rustup update stable`)
+
 ```bash
-git clone <repo>
+git clone https://github.com/cascalheira/codemagic-cli.git
 cd codemagic-cli
 cargo build --release
 # binary → target/release/codemagic-cli
