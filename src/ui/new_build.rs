@@ -285,7 +285,14 @@ fn draw_nb_enter_branch(f: &mut Frame, app: &App) {
 
     // ── Match count / custom-branch hint ───────────────────────────
     let branches = app.get_filtered_branches();
-    let match_line = if branches.is_empty() {
+    let match_line = if app.new_build_branches_loading {
+        Span::styled(
+            " Loading branches…",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::ITALIC),
+        )
+    } else if branches.is_empty() {
         if app.new_build_branch_filter.is_empty() {
             Span::styled(
                 " No branches — type a name to use it directly",

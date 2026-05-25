@@ -212,6 +212,7 @@ impl App {
                             self.new_build_branch_filter.clear();
                             self.new_build_branch_list_index = 0;
                             self.new_build_error = None;
+                            self.fetch_branches_for_selected_app();
                         }
                         KeyCode::Char(c) => {
                             self.new_build_workflow_input.push(c);

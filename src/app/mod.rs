@@ -123,6 +123,13 @@ pub enum AppMessage {
     },
     // New-build wizard
     AppsLoaded(Result<Vec<Application>>),
+    /// Branch list fetched for the selected app (`GET /apps/:id`).
+    /// Carries the `app_id` that was requested so the handler can match by ID
+    /// instead of by the (potentially stale) index.
+    BranchesLoaded {
+        app_id: String,
+        result: Result<Vec<String>>,
+    },
     BuildStarted(Result<String>),
     // Settings dialog
     SettingsTokenValidated(Result<bool>),
@@ -197,6 +204,8 @@ pub struct App {
     pub new_build_branch_filter: String,
     /// Highlighted row in the filtered branch list.
     pub new_build_branch_list_index: usize,
+    /// `true` while `GET /apps/:id` is in-flight to fetch branches.
+    pub new_build_branches_loading: bool,
     pub new_build_error: Option<String>,
     pub new_build_submitting: bool,
 
@@ -272,6 +281,7 @@ impl App {
             new_build_workflow_input: String::new(),
             new_build_branch_filter: String::new(),
             new_build_branch_list_index: 0,
+            new_build_branches_loading: false,
             new_build_error: None,
             new_build_submitting: false,
             cancel_message: None,

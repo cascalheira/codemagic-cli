@@ -154,6 +154,33 @@ impl ApiClient {
         response.text().await.context("Failed to read log content")
     }
 
+    /// Returns full details for a single application, including its branch list.
+    pub async fn get_app(&self, app_id: &str) -> Result<crate::models::Application> {
+        let response = self
+            .client
+            .get(format!("{API_BASE_URL}/apps/{app_id}"))
+            .header("x-auth-token", &self.api_token)
+            .send()
+            .await
+            .context("Failed to fetch app details")?;
+
+        if !response.status().is_success() {
+            bail!("API error: HTTP {}", response.status());
+        }
+
+        let text = response
+            .text()
+            .await
+            .context("Failed to read app details response body")?;
+
+        let data = serde_json::from_str::<crate::models::AppResponse>(&text).map_err(|err| {
+            let snippet = &text[..text.len().min(600)];
+            anyhow!("Failed to parse app response: {err}\n\nRaw:\n{snippet}")
+        })?;
+
+        Ok(data.application)
+    }
+
     /// Returns all applications the authenticated user has access to.
     pub async fn get_apps(&self) -> Result<Vec<crate::models::Application>> {
         let response = self

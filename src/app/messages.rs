@@ -197,10 +197,46 @@ impl App {
                 match result {
                     Ok(apps) => {
                         self.new_build_apps = apps;
-                        self.new_build_app_index = 0;
+                        // Only reset the app cursor when the user is still on
+                        // step 1 (or the wizard is closed). If they have already
+                        // advanced past app-selection, keep the index so we know
+                        // which app they picked, and re-fetch branches if they
+                        // are already on the branch step.
+                        match self.new_build_step {
+                            Some(NewBuildStep::SelectApp) | None => {
+                                self.new_build_app_index = 0;
+                            }
+                            Some(NewBuildStep::EnterBranch) => {
+                                // AppsLoaded can race with BranchesLoaded and
+                                // wipe the branch data. Re-fire the branch fetch
+                                // so the list is always up to date.
+                                self.fetch_branches_for_selected_app();
+                            }
+                            _ => {}
+                        }
                     }
                     Err(e) => {
                         self.new_build_error = Some(format!("Failed to load apps: {e}"));
+                    }
+                }
+            }
+
+            AppMessage::BranchesLoaded { app_id, result } => {
+                self.new_build_branches_loading = false;
+                match result {
+                    Ok(branches) => {
+                        // Match by app_id so a stale response for a different
+                        // app (or a reordered async delivery) doesn't corrupt
+                        // the wrong entry.
+                        if let Some(app) = self.new_build_apps.iter_mut().find(|a| a.id == app_id) {
+                            app.branches = branches;
+                        }
+                        // Reset list index in case the branch count changed.
+                        self.new_build_branch_list_index = 0;
+                    }
+                    Err(e) => {
+                        // Non-fatal: the user can still type a branch name.
+                        self.new_build_error = Some(format!("Could not load branches: {e}"));
                     }
                 }
             }

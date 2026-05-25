@@ -200,6 +200,14 @@ pub struct AppsResponse {
     pub applications: Vec<Application>,
 }
 
+// ─── Single app response ─────────────────────────────────────────────────────
+
+/// Response from `GET /apps/:id`.
+#[derive(Debug, Deserialize)]
+pub struct AppResponse {
+    pub application: Application,
+}
+
 // ─── Start-build response ─────────────────────────────────────────────────────
 
 /// Response from `POST /builds`.

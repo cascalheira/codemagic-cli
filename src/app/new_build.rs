@@ -14,6 +14,7 @@ impl App {
         self.new_build_workflow_input.clear();
         self.new_build_branch_filter.clear();
         self.new_build_branch_list_index = 0;
+        self.new_build_branches_loading = false;
         self.new_build_error = None;
         self.new_build_submitting = false;
 
@@ -55,7 +56,31 @@ impl App {
             self.new_build_branch_filter.clear();
             self.new_build_branch_list_index = 0;
             self.new_build_error = None;
+            self.fetch_branches_for_selected_app();
         }
+    }
+
+    /// Fetches up-to-date branch list for the currently selected app via
+    /// `GET /apps/:id` and sends `BranchesLoaded` when done.
+    pub(crate) fn fetch_branches_for_selected_app(&mut self) {
+        let Some(app) = self.new_build_apps.get(self.new_build_app_index) else {
+            return;
+        };
+        let app_id = app.id.clone();
+        let Some(client) = self.api_client.clone() else {
+            return;
+        };
+        self.new_build_branches_loading = true;
+        let tx = self.tx.clone();
+        tokio::spawn(async move {
+            let result = client.get_app(&app_id).await.map(|a| a.branches);
+            let _ = tx
+                .send(AppMessage::BranchesLoaded {
+                    app_id: app_id.clone(),
+                    result,
+                })
+                .await;
+        });
     }
 
     pub(crate) fn submit_new_build(&mut self) {
