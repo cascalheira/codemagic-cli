@@ -141,7 +141,7 @@ fn bundletool_jar_path() -> PathBuf {
 /// 2. Cached JAR + `java`.
 /// 3. Download the latest JAR from GitHub (needs `java`), cache it.
 /// 4. Otherwise, error with install instructions.
-async fn ensure_bundletool(status: &mut dyn FnMut(String)) -> Result<BundletoolCmd> {
+async fn ensure_bundletool<F: FnMut(String)>(status: &mut F) -> Result<BundletoolCmd> {
     let binary_ok = tokio::process::Command::new("bundletool")
         .arg("version")
         .output()
