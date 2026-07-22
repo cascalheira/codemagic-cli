@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 // ─── Commit ───────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct Commit {
     #[serde(rename = "commitMessage", default)]
     pub message: Option<String>,
@@ -22,7 +22,7 @@ pub struct Commit {
 
 /// The `config` object embedded in each build. Its `name` field is the
 /// human-readable workflow name (equivalent to `Workflow.name`).
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct BuildConfig {
     /// Display name of the workflow used for this build.
     pub name: String,
@@ -30,7 +30,7 @@ pub struct BuildConfig {
 
 // ─── Build ────────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct Build {
     #[serde(rename = "_id")]
     pub id: String,
@@ -153,14 +153,14 @@ impl Build {
 
 // ─── Workflow (embedded in Application) ──────────────────────────────────────
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct WorkflowInfo {
     pub name: String,
 }
 
 // ─── Application ─────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct Application {
     #[serde(rename = "_id")]
     pub id: String,
@@ -219,7 +219,7 @@ pub struct StartBuildResponse {
 
 // ─── Artefact ────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct Artefact {
     #[serde(default)]
     pub name: Option<String>,
@@ -279,7 +279,7 @@ impl Artefact {
 
 // ─── BuildAction ─────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct BuildAction {
     #[serde(rename = "_id", default)]
     pub id: Option<String>,

@@ -13,11 +13,13 @@ use crossterm::{
 use ratatui::{Terminal, backend::CrosstermBackend};
 use tokio::sync::mpsc;
 
-mod api;
+// Re-export the shared engine at the crate root so existing `crate::api`,
+// `crate::config`, and `crate::models` paths across the `app`/`ui` modules keep
+// resolving after the move into `codemagic-core`.
+pub use codemagic_core::{api, config, models};
+
 mod app;
 mod cli;
-mod config;
-mod models;
 mod ui;
 
 use app::{App, AppMessage};

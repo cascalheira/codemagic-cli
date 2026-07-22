@@ -1,0 +1,17 @@
+[package]
+name = "codemagic-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shared Codemagic.io API client and data models for the CLI and GUI clients."
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+tokio = { version = "1", features = ["fs", "io-util"] }
+dirs = "6.0.0"
+toml = "1.1.1"

@@ -1,0 +1,20 @@
+[package]
+name = "codemagic-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Cross-platform (desktop + mobile) Codemagic.io client built with Dioxus."
+
+[dependencies]
+codemagic-core.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+rfd = "0.15"
+dioxus = { version = "0.7", features = ["router"] }
+
+[features]
+default = ["desktop"]
+desktop = ["dioxus/desktop"]
+mobile = ["dioxus/mobile"]
+web = ["dioxus/web"]

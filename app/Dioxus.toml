@@ -1,0 +1,9 @@
+[application]
+name = "codemagic-app"
+
+[web.app]
+title = "Codemagic"
+
+[bundle]
+identifier = "io.codemagic.client"
+publisher = "Codemagic Client"

@@ -4,6 +4,21 @@ A terminal UI and CLI tool for [Codemagic CI/CD](https://codemagic.io), built wi
 
 ---
 
+## Workspace layout
+
+This repository is a Cargo workspace with three crates:
+
+| Crate | What it is |
+|---|---|
+| [`core/`](core) | `codemagic-core` — the shared API client, data models, and config. No UI dependencies, so it compiles for desktop **and** mobile. |
+| [`cli/`](cli) | `codemagic-cli` — the terminal UI + CLI (this document). |
+| [`app/`](app) | `codemagic-app` — a cross-platform Dioxus GUI (desktop + iOS/Android). See [`app/README.md`](app/README.md). |
+
+Build everything with `cargo build`; build just the terminal client with
+`cargo build -p codemagic-cli`.
+
+---
+
 ## Features
 
 | | |
