@@ -24,9 +24,10 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
     let state = use_context::<AppState>();
     let mut log_modal = use_signal(|| LogModal::Closed);
     let mut dl_status = use_signal(|| Option::<String>::None);
+    let mut cancel_status = use_signal(|| Option::<String>::None);
 
     // Re-fetches whenever the selected build id changes.
-    let detail = use_resource(move || {
+    let mut detail = use_resource(move || {
         let client = state.client();
         let id = selected.read().clone();
         async move {
@@ -72,16 +73,46 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
         .unwrap_or_default();
     let duration = fmt_duration(build.started_at, build.finished_at);
     let has_downloads = build.artefacts.iter().any(|a| a.url.is_some());
+    let cancellable = is_cancellable(&build.status);
+    let build_id = build.id.clone();
 
     rsx! {
         div { class: "detail",
             // ── Header ──────────────────────────────────────────────
             div { class: "detail-head",
                 span { class: "status {status_class(&build.status)}", "{build.status}" }
-                div {
+                div { class: "detail-head-main",
                     h2 { "{app_name}" }
                     p { class: "muted", "{build.workflow_display()}  ·  {build.git_ref()}  {number}" }
                 }
+                if cancellable {
+                    {
+                        let client = state.client();
+                        rsx! {
+                            button {
+                                class: "danger small",
+                                onclick: move |_| {
+                                    let client = client.clone();
+                                    let build_id = build_id.clone();
+                                    cancel_status.set(Some("Stopping build…".into()));
+                                    spawn(async move {
+                                        match client.cancel_build(&build_id).await {
+                                            Ok(()) => {
+                                                cancel_status.set(Some("Build stop requested.".into()));
+                                                detail.restart();
+                                            }
+                                            Err(e) => cancel_status.set(Some(format!("Couldn't stop build: {e}"))),
+                                        }
+                                    });
+                                },
+                                "Stop build"
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(msg) = &*cancel_status.read() {
+                p { class: "dl-status", "{msg}" }
             }
 
             dl { class: "meta",
@@ -341,6 +372,15 @@ fn sanitize(name: &str) -> String {
 }
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
+
+/// Whether a build in this status can still be cancelled (i.e. it hasn't
+/// reached a terminal state).
+fn is_cancellable(status: &str) -> bool {
+    !matches!(
+        status,
+        "finished" | "failed" | "canceled" | "timeout" | "skipped"
+    )
+}
 
 fn fmt_time(t: Option<DateTime<Utc>>) -> String {
     t.map(|t| t.format("%Y-%m-%d %H:%M").to_string())

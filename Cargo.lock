@@ -893,6 +893,7 @@ dependencies = [
  "codemagic-core",
  "dioxus",
  "rfd 0.15.4",
+ "tokio",
 ]
 
 [[package]]

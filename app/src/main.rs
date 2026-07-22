@@ -20,9 +20,19 @@ fn main() {
     #[cfg(feature = "desktop")]
     {
         use dioxus::desktop::{Config, WindowBuilder};
-        let window = WindowBuilder::new()
+        #[allow(unused_mut)]
+        let mut window = WindowBuilder::new()
             .with_title("Codemagic")
             .with_always_on_top(false);
+        // Let the frosted-glass content run under the traffic lights (macOS).
+        #[cfg(target_os = "macos")]
+        {
+            use dioxus::desktop::tao::platform::macos::WindowBuilderExtMacOS;
+            window = window
+                .with_titlebar_transparent(true)
+                .with_fullsize_content_view(true)
+                .with_title_hidden(true);
+        }
         dioxus::LaunchBuilder::desktop()
             .with_cfg(Config::new().with_window(window))
             .launch(App);

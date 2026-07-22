@@ -11,6 +11,7 @@ codemagic-core.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 rfd = "0.15"
+tokio = { version = "1", features = ["time"] }
 dioxus = { version = "0.7", features = ["router"] }
 
 [features]

@@ -7,18 +7,32 @@ use codemagic_core::models::Build;
 use dioxus::prelude::*;
 
 use super::build_detail::BuildDetail;
+use super::new_build::NewBuildModal;
+use super::settings::SettingsModal;
 use crate::state::AppState;
 
 #[component]
 pub fn BuildsScreen() -> Element {
-    let mut state = use_context::<AppState>();
+    let state = use_context::<AppState>();
 
     // Currently selected build id, shared with the detail pane.
-    let selected = use_signal(|| Option::<String>::None);
+    let mut selected = use_signal(|| Option::<String>::None);
+    let mut new_build_open = use_signal(|| false);
+    let mut settings_open = use_signal(|| false);
 
     let mut builds = use_resource(move || {
         let client = state.client();
         async move { client.get_builds(0, None, None).await }
+    });
+
+    // Auto-refresh the list on the configured interval.
+    let refresh_secs = state.refresh_secs;
+    use_future(move || async move {
+        loop {
+            let secs = *refresh_secs.read();
+            tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+            builds.restart();
+        }
     });
 
     rsx! {
@@ -27,8 +41,9 @@ pub fn BuildsScreen() -> Element {
                 header { class: "topbar",
                     h1 { "Builds" }
                     div { class: "actions",
-                        button { class: "ghost", onclick: move |_| builds.restart(), "Refresh" }
-                        button { class: "ghost", onclick: move |_| state.sign_out(), "Sign out" }
+                        button { class: "primary small", onclick: move |_| new_build_open.set(true), "New build" }
+                        button { class: "ghost small", onclick: move |_| builds.restart(), "Refresh" }
+                        button { class: "ghost small", onclick: move |_| settings_open.set(true), "Settings" }
                     }
                 }
                 div { class: "sidebar-list",
@@ -70,6 +85,20 @@ pub fn BuildsScreen() -> Element {
             section { class: "detail-pane",
                 BuildDetail { selected }
             }
+        }
+
+        if new_build_open() {
+            NewBuildModal {
+                open: new_build_open,
+                on_started: move |build_id: String| {
+                    new_build_open.set(false);
+                    builds.restart();
+                    selected.set(Some(build_id));
+                },
+            }
+        }
+        if settings_open() {
+            SettingsModal { open: settings_open }
         }
     }
 }
