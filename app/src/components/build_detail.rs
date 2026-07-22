@@ -188,39 +188,74 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                     for art in build.artefacts.iter() {
                         {
                             let art = art.clone();
+                            let art_apk = art.clone();
                             let client = state.client();
+                            let client_apk = state.client();
                             let name = art.display_name().to_string();
                             let meta = format!("{}  ·  {}", art.display_type(), art.display_size());
                             let has_url = art.url.is_some();
+                            let is_aab = art.is_aab();
                             rsx! {
                                 li { class: "artifact-row",
                                     div { class: "artifact-main",
                                         span { class: "artifact-name", "{name}" }
                                         span { class: "muted", "{meta}" }
                                     }
-                                    button {
-                                        class: "ghost small",
-                                        disabled: !has_url,
-                                        onclick: move |_| {
-                                            let art = art.clone();
-                                            let client = client.clone();
-                                            spawn(async move {
-                                                let Some(handle) = rfd::AsyncFileDialog::new()
-                                                    .set_file_name(art.display_name())
-                                                    .save_file()
-                                                    .await
-                                                else {
-                                                    return; // cancelled
-                                                };
-                                                let dest = handle.path().to_path_buf();
-                                                dl_status.set(Some(format!("Downloading {}…", art.display_name())));
-                                                match download_to(client, art, dest).await {
-                                                    Ok(path) => dl_status.set(Some(format!("Saved to {}", path.display()))),
-                                                    Err(e) => dl_status.set(Some(format!("Failed: {e}"))),
-                                                }
-                                            });
-                                        },
-                                        "Download"
+                                    div { class: "artifact-actions",
+                                        if is_aab {
+                                            button {
+                                                class: "ghost small",
+                                                disabled: !has_url,
+                                                onclick: move |_| {
+                                                    let art = art_apk.clone();
+                                                    let client = client_apk.clone();
+                                                    spawn(async move {
+                                                        let Some(handle) = rfd::AsyncFileDialog::new()
+                                                            .set_file_name(codemagic_core::bundletool::suggested_apk_name(&art))
+                                                            .save_file()
+                                                            .await
+                                                        else {
+                                                            return; // cancelled
+                                                        };
+                                                        let dest = handle.path().to_path_buf();
+                                                        let status = dl_status;
+                                                        let result = codemagic_core::bundletool::convert_aab_to_apk(
+                                                            &client, &art, &dest,
+                                                            move |m| { let mut s = status; s.set(Some(m)); },
+                                                        ).await;
+                                                        match result {
+                                                            Ok(path) => dl_status.set(Some(format!("APK saved to {}", path.display()))),
+                                                            Err(e) => dl_status.set(Some(format!("Conversion failed: {e}"))),
+                                                        }
+                                                    });
+                                                },
+                                                "Convert to APK"
+                                            }
+                                        }
+                                        button {
+                                            class: "ghost small",
+                                            disabled: !has_url,
+                                            onclick: move |_| {
+                                                let art = art.clone();
+                                                let client = client.clone();
+                                                spawn(async move {
+                                                    let Some(handle) = rfd::AsyncFileDialog::new()
+                                                        .set_file_name(art.display_name())
+                                                        .save_file()
+                                                        .await
+                                                    else {
+                                                        return; // cancelled
+                                                    };
+                                                    let dest = handle.path().to_path_buf();
+                                                    dl_status.set(Some(format!("Downloading {}…", art.display_name())));
+                                                    match download_to(client, art, dest).await {
+                                                        Ok(path) => dl_status.set(Some(format!("Saved to {}", path.display()))),
+                                                        Err(e) => dl_status.set(Some(format!("Failed: {e}"))),
+                                                    }
+                                                });
+                                            },
+                                            "Download"
+                                        }
                                     }
                                 }
                             }

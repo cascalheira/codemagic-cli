@@ -14,12 +14,15 @@ Wired end-to-end against the live API:
   - **Detail pane** — status, workflow, branch, version, timing, and commit;
     a **Steps** list with per-step status/duration and a **View log** viewer
     (fetched with the auth token and shown in an overlay); and an **Artifacts**
-    list with per-file **Download** and **Download all** (saved to
-    `~/Downloads/Codemagic`).
+    list with per-file **Download**, **Download all**, and **Convert to APK**
+    for `.aab` artifacts. Every download opens a native Save As / folder dialog.
 
-Next up: new-build wizard, AAB → APK conversion (desktop only — needs
-bundletool), a mobile share sheet for downloads instead of a fixed path, and
-secure token storage (Keychain / Keystore).
+**AAB → APK** conversion is shared with the CLI via `codemagic-core` and runs
+`bundletool` (desktop only — needs a `bundletool` binary or Java; the JAR is
+auto-downloaded and cached on first use).
+
+Next up: new-build wizard, a mobile share sheet for downloads instead of a
+native dialog, and secure token storage (Keychain / Keystore).
 
 ## Running
 

@@ -187,6 +187,7 @@ button:disabled { opacity: 0.6; cursor: default; }
   border-bottom: 1px solid var(--border);
 }
 .artifact-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.artifact-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
 .artifact-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .artifact-main .muted { font-size: 0.82rem; }
 .dl-status { margin-top: 1rem; font-size: 0.88rem; color: var(--accent); }
