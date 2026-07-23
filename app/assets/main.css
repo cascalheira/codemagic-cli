@@ -267,6 +267,23 @@ input:focus, select:focus, .token-input:focus {
 .build-row:hover + .build-row::after, .build-row.selected + .build-row::after { display: none; }
 
 /* Bottom toolbar */
+/* Infinite-scroll sentinel at the bottom of the build list: scrolling it into
+   view loads the next page, and it spins while that page is in flight. */
+.list-end {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0 1.5rem;
+}
+.list-spinner {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 2px solid var(--sep);
+  border-top-color: var(--muted);
+  animation: spin 0.7s linear infinite;
+}
+
 .sidebar-foot {
   display: flex;
   align-items: center;

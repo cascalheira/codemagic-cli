@@ -1,10 +1,10 @@
 //! The main authenticated screen: a build-list sidebar on the left and a
 //! detail pane on the right.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Local, Utc};
-use codemagic_core::models::Build;
+use codemagic_core::{PAGE_SIZE, models::Build};
 use dioxus::prelude::*;
 
 use super::build_detail::BuildDetail;
@@ -12,6 +12,15 @@ use super::icons::{GearIcon, PlusIcon, RefreshIcon};
 use super::new_build::NewBuildModal;
 use super::settings::SettingsModal;
 use crate::state::AppState;
+
+/// One accumulated view of the build list: every page loaded so far, the app
+/// names referenced by those builds, and whether more pages remain.
+#[derive(Clone, PartialEq)]
+struct BuildPage {
+    builds: Vec<Build>,
+    names: HashMap<String, String>,
+    has_more: bool,
+}
 
 #[component]
 pub fn BuildsScreen() -> Element {
@@ -22,18 +31,64 @@ pub fn BuildsScreen() -> Element {
     let mut new_build_open = use_signal(|| false);
     let mut settings_open = use_signal(|| false);
     let mut refreshing = use_signal(|| false);
+    // How many pages of `PAGE_SIZE` builds to load. "Load more" bumps this.
+    let mut pages = use_signal(|| 1usize);
 
+    // Fetches every loaded page in sequence and concatenates them. Refetching
+    // all of them (rather than appending) keeps the list consistent as new
+    // builds shift the skip-based pagination window.
     let mut builds = use_resource(move || {
         let client = state.client();
-        async move { client.get_builds(0, None, None).await }
+        let n = pages();
+        async move {
+            let mut all: Vec<Build> = Vec::new();
+            let mut seen: HashSet<String> = HashSet::new();
+            let mut names: HashMap<String, String> = HashMap::new();
+            let mut has_more = false;
+            for _ in 0..n {
+                // `skip` is the number of builds held so far, not page * size:
+                // the API can return more than PAGE_SIZE per response.
+                let resp = client.get_builds(all.len(), None, None).await?;
+                for a in &resp.applications {
+                    names.insert(a.id.clone(), a.name.clone());
+                }
+                has_more = resp.builds.len() >= PAGE_SIZE;
+                let before = all.len();
+                // A build can repeat across pages if new ones arrived meanwhile.
+                for b in resp.builds {
+                    if seen.insert(b.id.clone()) {
+                        all.push(b);
+                    }
+                }
+                // Stop if this page added nothing new, so a stalled cursor can't
+                // spin forever.
+                if !has_more || all.len() == before {
+                    break;
+                }
+            }
+            anyhow::Ok(BuildPage {
+                builds: all,
+                names,
+                has_more,
+            })
+        }
     });
 
-    // Clear the spinner once a (re)fetch resolves.
+    // Last good list, so refreshing or loading more never blanks the sidebar.
+    let mut cached = use_signal(|| Option::<BuildPage>::None);
+
+    // Clear the spinner once a (re)fetch resolves, and keep the cache current.
     use_effect(move || {
-        if builds.read().is_some() {
+        if let Some(result) = &*builds.read() {
+            if let Ok(page) = result {
+                cached.set(Some(page.clone()));
+            }
             refreshing.set(false);
         }
     });
+
+    // True while a fetch is in flight (auto-refresh or "Load more").
+    let loading = builds.read().is_none();
 
     // Auto-refresh the list on the configured interval.
     let refresh_secs = state.refresh_secs;
@@ -46,7 +101,7 @@ pub fn BuildsScreen() -> Element {
         }
     });
 
-    let spinning = refreshing() || builds.read().is_none();
+    let spinning = refreshing() || loading;
 
     rsx! {
         div { class: "layout",
@@ -69,48 +124,62 @@ pub fn BuildsScreen() -> Element {
                     }
                 }
                 div { class: "sidebar-list",
-                    match &*builds.read() {
-                        None => rsx! { p { class: "muted center", "Loading builds…" } },
-                        Some(Err(e)) => rsx! {
-                            div { class: "error-box",
-                                p { "Couldn't load builds." }
-                                p { class: "muted", "{e}" }
-                                button { class: "ghost", onclick: move |_| builds.restart(), "Retry" }
-                            }
-                        },
-                        Some(Ok(resp)) => {
-                            let names: HashMap<&str, &str> = resp
-                                .applications
-                                .iter()
-                                .map(|a| (a.id.as_str(), a.name.as_str()))
-                                .collect();
-                            if resp.builds.is_empty() {
-                                rsx! { p { class: "muted center", "No builds yet." } }
-                            } else {
-                                // Group consecutive builds by calendar day.
-                                let mut groups: Vec<(String, Vec<Build>)> = Vec::new();
-                                for b in &resp.builds {
-                                    let label = b.display_time().map(day_label).unwrap_or_else(|| "Earlier".into());
-                                    match groups.last_mut() {
-                                        Some((l, v)) if *l == label => v.push(b.clone()),
-                                        _ => groups.push((label, vec![b.clone()])),
-                                    }
+                    match cached.read().as_ref() {
+                        // Nothing loaded yet: show the first error, or loading.
+                        None => match &*builds.read() {
+                            Some(Err(e)) => rsx! {
+                                div { class: "error-box",
+                                    p { "Couldn't load builds." }
+                                    p { class: "muted", "{e}" }
+                                    button { class: "ghost", onclick: move |_| builds.restart(), "Retry" }
                                 }
-                                rsx! {
-                                    for (label, gbuilds) in groups.iter() {
-                                        div { key: "{label}", class: "day-group",
-                                            div { class: "day-header", "{label}" }
-                                            ul { class: "build-list",
-                                                for build in gbuilds.iter() {
-                                                    BuildRow {
-                                                        key: "{build.id}",
-                                                        data: build.clone(),
-                                                        app_name: names.get(build.app_id.as_str()).map(|s| s.to_string()),
-                                                        selected,
-                                                    }
+                            },
+                            _ => rsx! { p { class: "muted center", "Loading builds…" } },
+                        },
+                        Some(page) if page.builds.is_empty() => {
+                            rsx! { p { class: "muted center", "No builds yet." } }
+                        }
+                        Some(page) => {
+                            // Group consecutive builds by calendar day.
+                            let mut groups: Vec<(String, Vec<Build>)> = Vec::new();
+                            for b in &page.builds {
+                                let label = b.display_time().map(day_label).unwrap_or_else(|| "Earlier".into());
+                                match groups.last_mut() {
+                                    Some((l, v)) if *l == label => v.push(b.clone()),
+                                    _ => groups.push((label, vec![b.clone()])),
+                                }
+                            }
+                            let has_more = page.has_more;
+                            let names = page.names.clone();
+                            rsx! {
+                                for (label, gbuilds) in groups.iter() {
+                                    div { key: "{label}", class: "day-group",
+                                        div { class: "day-header", "{label}" }
+                                        ul { class: "build-list",
+                                            for build in gbuilds.iter() {
+                                                BuildRow {
+                                                    key: "{build.id}",
+                                                    data: build.clone(),
+                                                    app_name: names.get(&build.app_id).cloned(),
+                                                    selected,
                                                 }
                                             }
                                         }
+                                    }
+                                }
+                                // Infinite scroll: this sentinel sits below the
+                                // last row, so scrolling it into view pulls the
+                                // next page. Clipping by the scroll container
+                                // means it only intersects once actually reached.
+                                if has_more {
+                                    div {
+                                        class: "list-end",
+                                        onvisible: move |e| {
+                                            if e.data().is_intersecting().unwrap_or(false) && !loading {
+                                                pages += 1;
+                                            }
+                                        },
+                                        div { class: "list-spinner" }
                                     }
                                 }
                             }

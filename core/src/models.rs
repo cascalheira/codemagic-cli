@@ -298,7 +298,7 @@ pub struct BuildAction {
 // ─── BuildDetailResponse ─────────────────────────────────────────────────────
 
 /// Response from `GET /builds/:id`.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct BuildDetailResponse {
     pub application: Application,
     pub build: Build,

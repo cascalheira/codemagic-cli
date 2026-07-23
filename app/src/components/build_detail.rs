@@ -2,10 +2,18 @@
 //! right-hand artifacts download rail.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use codemagic_core::{ApiClient, models::Artefact};
+use codemagic_core::{
+    ApiClient,
+    models::{Artefact, BuildDetailResponse},
+};
 use dioxus::prelude::*;
+
+/// How often to re-poll a build that hasn't reached a terminal state. Polling
+/// stops on its own once the build finishes.
+const POLL_SECS: u64 = 5;
 
 use super::builds_screen::status_class;
 use super::icons::{ChevronIcon, DownloadIcon, StopIcon};
@@ -29,36 +37,76 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
         }
     });
 
-    if selected.read().is_none() {
+    // Last successful load and last error, each tagged with the build id they
+    // belong to. Rendering from this cache means a poll refresh swaps in new
+    // data without blanking the pane, while a *new* selection correctly falls
+    // back to the loading state (the tag won't match).
+    let mut cached = use_signal(|| Option::<(String, BuildDetailResponse)>::None);
+    let mut failed = use_signal(|| Option::<(String, String)>::None);
+
+    use_effect(move || {
+        let sel = selected.read().clone();
+        match (&*detail.read(), sel) {
+            (Some(Some(Ok(resp))), _) => {
+                cached.set(Some((resp.build.id.clone(), resp.clone())));
+                failed.set(None);
+            }
+            (Some(Some(Err(e))), Some(id)) => failed.set(Some((id, e.to_string()))),
+            _ => {}
+        }
+    });
+
+    // Poll while the selected build is still in a non-terminal state, so a
+    // running build's status, steps and artifacts update live.
+    use_future(move || async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(POLL_SECS)).await;
+            let running = {
+                let c = cached.read();
+                c.as_ref()
+                    .is_some_and(|(_, r)| is_cancellable(&r.build.status))
+            };
+            if running {
+                detail.restart();
+            }
+        }
+    });
+
+    let Some(sel_id) = selected.read().clone() else {
         return rsx! {
             div { class: "detail-empty muted",
                 p { "Select a build to see its details, logs, and artifacts." }
             }
         };
-    }
+    };
 
-    let view = detail.read();
-    let build = match &*view {
-        None | Some(None) => {
-            return rsx! { div { class: "detail-center", p { class: "muted center", "Loading build…" } } };
-        }
-        Some(Some(Err(e))) => {
-            return rsx! {
-                div { class: "detail-center",
-                    div { class: "error-box",
-                        p { "Couldn't load this build." }
-                        p { class: "muted", "{e}" }
+    let view = cached.read();
+    let resp = match view.as_ref() {
+        Some((id, resp)) if *id == sel_id => resp,
+        // Nothing cached for this selection yet — show its error, or loading.
+        _ => {
+            let err = failed.read();
+            let msg = err
+                .as_ref()
+                .and_then(|(id, m)| (*id == sel_id).then(|| m.clone()));
+            return match msg {
+                Some(msg) => rsx! {
+                    div { class: "detail-center",
+                        div { class: "error-box",
+                            p { "Couldn't load this build." }
+                            p { class: "muted", "{msg}" }
+                        }
                     }
-                }
+                },
+                None => rsx! {
+                    div { class: "detail-center", p { class: "muted center", "Loading build…" } }
+                },
             };
         }
-        Some(Some(Ok(resp))) => &resp.build,
     };
 
-    let app_name = match &*view {
-        Some(Some(Ok(resp))) => resp.application.name.clone(),
-        _ => "Unknown app".to_string(),
-    };
+    let build = &resp.build;
+    let app_name = resp.application.name.clone();
 
     let number = build
         .display_build_number()
