@@ -1,0 +1,61 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Squircle background: Codemagic teal -> green, top-down -->
+    <linearGradient id="bg" x1="512" y1="100" x2="512" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2FD8AC"/>
+      <stop offset="0.55" stop-color="#12B983"/>
+      <stop offset="1" stop-color="#059268"/>
+    </linearGradient>
+    <!-- Soft top gloss -->
+    <linearGradient id="gloss" x1="512" y1="120" x2="512" y2="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Flame -->
+    <linearGradient id="flame" x1="512" y1="636" x2="512" y2="748" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD54A"/>
+      <stop offset="1" stop-color="#FF8A34"/>
+    </linearGradient>
+    <radialGradient id="port" cx="512" cy="462" r="46" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8FE9FF"/>
+      <stop offset="1" stop-color="#0E7C86"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#003b2b" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded-rect "squircle" (824x824, 100px margin, ~22.5% radius) -->
+  <rect x="100" y="100" width="824" height="824" rx="186" ry="186" fill="url(#bg)"/>
+  <rect x="100" y="100" width="824" height="824" rx="186" ry="186" fill="url(#gloss)"/>
+
+  <!-- Sparkles ("magic") -->
+  <g fill="#ffffff" opacity="0.85">
+    <path d="M690 300 l10 26 26 10 -26 10 -10 26 -10 -26 -26 -10 26 -10 z" opacity="0.7"/>
+    <path d="M336 372 l7 18 18 7 -18 7 -7 18 -7 -18 -18 -7 18 -7 z" opacity="0.55"/>
+    <circle cx="700" cy="470" r="7" opacity="0.5"/>
+    <circle cx="360" cy="286" r="6" opacity="0.45"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <!-- Flame -->
+    <path d="M470 640 C 482 702 500 744 512 746 C 524 744 542 702 554 640 C 540 654 524 660 512 660 C 500 660 484 654 470 640 Z" fill="url(#flame)"/>
+    <path d="M492 648 C 500 690 508 718 512 720 C 516 718 524 690 532 648 C 524 658 500 658 492 648 Z" fill="#FFF2B8"/>
+
+    <!-- Fins -->
+    <path d="M452 556 C 412 592 392 636 392 668 L 456 626 Z" fill="#E9FBF3"/>
+    <path d="M572 556 C 612 592 632 636 632 668 L 568 626 Z" fill="#CDEFE1"/>
+
+    <!-- Body -->
+    <path d="M512 292
+             C 574 366 592 452 592 524
+             C 592 588 568 632 512 646
+             C 456 632 432 588 432 524
+             C 432 452 450 366 512 292 Z" fill="#FFFFFF"/>
+
+    <!-- Porthole -->
+    <circle cx="512" cy="462" r="46" fill="url(#port)"/>
+    <circle cx="512" cy="462" r="46" fill="none" stroke="#E4FBF3" stroke-width="8"/>
+    <circle cx="498" cy="448" r="12" fill="#EAFCFF" opacity="0.85"/>
+  </g>
+</svg>

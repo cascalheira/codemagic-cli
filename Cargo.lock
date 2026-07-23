@@ -886,7 +886,7 @@ dependencies = [
 
 [[package]]
 name = "codemagic-app"
-version = "1.4.0"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -899,7 +899,7 @@ dependencies = [
 
 [[package]]
 name = "codemagic-cli"
-version = "1.4.0"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -917,7 +917,7 @@ dependencies = [
 
 [[package]]
 name = "codemagic-core"
-version = "1.4.0"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "chrono",

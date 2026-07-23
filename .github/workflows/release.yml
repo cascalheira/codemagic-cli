@@ -81,8 +81,12 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y pkg-config libssl-dev
 
+      # Build only the CLI package. The GUI app (`codemagic-app`) enables the
+      # `desktop` feature by default, which pulls in webkit2gtk on Linux — not
+      # installed on these runners. The desktop app is bundled separately in the
+      # `bundle` job below.
       - name: Build release binary
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        run: cargo build --release --locked --target ${{ matrix.target }} -p codemagic-cli
 
       # Reduces binary size — safe for distribution builds.
       # Must happen BEFORE signing — stripping after signing invalidates the signature.
@@ -206,10 +210,154 @@ jobs:
           path: "${{ matrix.artifact }}.*"
           if-no-files-found: error
 
+  # ── Bundle the desktop GUI app (macOS .app / Windows installer) ────────────
+  # `dx bundle` reads app/Dioxus.toml and bakes the icon into each bundle
+  # automatically (icon.icns for macOS, icon.ico for Windows). The macOS .app is
+  # code-signed (Developer ID + Hardened Runtime), notarized, and stapled so it
+  # launches without a Gatekeeper prompt. The Windows installer is unsigned —
+  # SmartScreen will warn until a code-signing certificate is added.
+  bundle:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: App · macOS arm64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            package_types: macos
+            artifact: codemagic-app-macos-aarch64
+
+          - name: App · macOS x86-64 (cross-compiled)
+            runner: macos-latest
+            target: x86_64-apple-darwin
+            package_types: macos
+            artifact: codemagic-app-macos-x86_64
+
+          - name: App · Windows x86-64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            package_types: nsis
+            artifact: codemagic-app-windows-x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust build artefacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: bundle-${{ matrix.target }}
+
+      # Prebuilt dioxus-cli, pinned to the version in Cargo.lock. Falls back to a
+      # source build if no prebuilt binary is available for the runner.
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install dioxus-cli
+        shell: bash
+        run: cargo binstall dioxus-cli@0.7.9 -y || cargo install dioxus-cli@0.7.9 --locked
+
+      - name: Bundle desktop app
+        working-directory: app
+        run: dx bundle --platform desktop --release --target ${{ matrix.target }} --package-types ${{ matrix.package_types }} --out-dir dist
+
+      # ── macOS code signing + notarization ─────────────────────────────────
+      # Import the Developer ID Application certificate into a short-lived
+      # keychain so codesign can find it (same flow as the CLI build job).
+      - name: Import signing certificate
+        if: runner.os == 'macOS'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PWD }}
+        run: |
+          echo "$CERTIFICATE_BASE64" | base64 --decode > /tmp/certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import /tmp/certificate.p12 \
+            -k build.keychain \
+            -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm /tmp/certificate.p12
+
+      # Sign the nested executable first, then the .app bundle itself, with the
+      # Hardened Runtime flag required for notarization.
+      - name: Sign app bundle
+        if: runner.os == 'macOS'
+        working-directory: app
+        env:
+          SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          APP="$(ls -d dist/*.app | head -1)"
+          codesign --force --options runtime --timestamp \
+            --sign "$SIGNING_IDENTITY" "$APP/Contents/MacOS/codemagic-app"
+          codesign --force --options runtime --timestamp \
+            --sign "$SIGNING_IDENTITY" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      # Submit to Apple, wait for the result, then staple the ticket to the .app
+      # so it validates offline.
+      - name: Notarize and staple
+        if: runner.os == 'macOS'
+        working-directory: app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          APP="$(ls -d dist/*.app | head -1)"
+          ditto -c -k --keepParent "$APP" /tmp/notarize.zip
+          xcrun notarytool submit /tmp/notarize.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id  "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$APP"
+          rm /tmp/notarize.zip
+
+      - name: Clean up keychain
+        if: runner.os == 'macOS' && always()
+        run: security delete-keychain build.keychain || true
+
+      # Zip the (signed + stapled) .app on macOS, or grab the NSIS setup .exe on
+      # Windows, then checksum.
+      - name: Package
+        shell: bash
+        working-directory: app
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            APP="$(ls -d dist/*.app | head -1)"
+            ditto -c -k --keepParent "$APP" "${{ matrix.artifact }}.zip"
+            shasum -a 256 "${{ matrix.artifact }}.zip" > "${{ matrix.artifact }}.zip.sha256"
+          else
+            SETUP="$(ls dist/*.exe | head -1)"
+            cp "$SETUP" "${{ matrix.artifact }}.exe"
+            sha256sum "${{ matrix.artifact }}.exe" > "${{ matrix.artifact }}.exe.sha256"
+          fi
+
+      - name: Upload bundle artefact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: "app/${{ matrix.artifact }}.*"
+          if-no-files-found: error
+
   # ── Publish a GitHub Release (tag pushes only) ────────────────────────────
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, bundle]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 

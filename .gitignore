@@ -1,1 +1,8 @@
 /target
+
+# dx bundle output
+/app/dist/
+/app/dist-*/
+
+# macOS
+.DS_Store

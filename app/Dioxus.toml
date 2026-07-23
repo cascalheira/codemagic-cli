@@ -7,3 +7,4 @@ title = "Codemagic"
 [bundle]
 identifier = "io.codemagic.client"
 publisher = "Codemagic Client"
+icon = ["assets/icon.icns", "assets/icon.ico", "assets/icon-1024.png"]
