@@ -16,3 +16,17 @@ icon = ["assets/icon.icns", "assets/icon.ico", "assets/icon-1024.png"]
 # it, the bootstrapper fetches it at install time.
 [bundle.windows.webview_install_mode.DownloadBootstrapper]
 silent = true
+
+# Without these the .deb declares no dependencies at all: it installs cleanly
+# on a machine with no web engine and then dies on a missing .so. The list is
+# the binary's DT_NEEDED entries reduced to the packages that own them —
+# cairo, glib, gdk-pixbuf and wayland all arrive transitively via libgtk-3-0,
+# and libjavascriptcoregtk ships inside libwebkit2gtk-4.1-0. OpenSSL is an
+# alternative because 24.04 renamed the package during the time_t transition.
+[bundle.deb]
+depends = [
+  "libwebkit2gtk-4.1-0",
+  "libgtk-3-0",
+  "libxdo3",
+  "libssl3 | libssl3t64",
+]

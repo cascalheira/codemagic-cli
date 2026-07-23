@@ -7,6 +7,10 @@ version = "2.2.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/cascalheira/codemagic-cli"
+# Both feed the Linux package metadata: `authors` becomes the .deb's
+# Maintainer field (otherwise "Unknown"), `homepage` its Homepage.
+authors = ["Antonio Cascalheira"]
+homepage = "https://github.com/cascalheira/codemagic-cli"
 
 [workspace.dependencies]
 gantry-core = { path = "core" }
