@@ -464,14 +464,7 @@ fn sanitize(name: &str) -> String {
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
-/// Whether a build in this status can still be cancelled (i.e. it hasn't
-/// reached a terminal state).
-fn is_cancellable(status: &str) -> bool {
-    !matches!(
-        status,
-        "finished" | "failed" | "canceled" | "timeout" | "skipped"
-    )
-}
+use codemagic_core::status::is_cancellable;
 
 fn fmt_time(t: Option<DateTime<Utc>>) -> String {
     t.map(|t| t.format("%Y-%m-%d %H:%M").to_string())

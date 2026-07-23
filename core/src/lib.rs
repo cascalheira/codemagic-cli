@@ -9,6 +9,7 @@ pub mod api;
 pub mod bundletool;
 pub mod config;
 pub mod models;
+pub mod status;
 pub mod web;
 
 pub use api::{ApiClient, PAGE_SIZE};

@@ -475,15 +475,5 @@ impl App {
 
 /// Returns `true` for any build status that means the build is still in progress.
 pub fn is_running_status(status: &str) -> bool {
-    matches!(
-        status,
-        "building"
-            | "queued"
-            | "preparing"
-            | "fetching"
-            | "initializing"
-            | "testing"
-            | "publishing"
-            | "finishing"
-    )
+    codemagic_core::status::is_running(status)
 }

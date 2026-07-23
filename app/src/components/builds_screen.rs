@@ -38,6 +38,10 @@ pub fn BuildsScreen() -> Element {
     // Every workflow seen so far, as (id, display name). Only ever grows, so
     // filtering to one workflow can't shrink the set of choices offered.
     let mut known_workflows = use_signal(Vec::<(String, String)>::new);
+    // Last status seen per build id, used to spot running -> finished
+    // transitions. `None` until the first load completes, so the builds that
+    // already existed at startup don't all fire notifications at once.
+    let mut last_status = use_signal(|| Option::<HashMap<String, String>>::None);
 
     // Fetches every loaded page in sequence and concatenates them. Refetching
     // all of them (rather than appending) keeps the list consistent as new
@@ -105,9 +109,41 @@ pub fn BuildsScreen() -> Element {
             .map(|(id, b)| (id, b.workflow_display().to_string()))
             .collect();
 
+        // Notify on builds that have just left a running state. The first load
+        // only seeds the map, so pre-existing builds don't all notify at once.
+        let previous = last_status.read().clone();
+        let current: Vec<(String, String)> = page
+            .builds
+            .iter()
+            .map(|b| (b.id.clone(), b.status.clone()))
+            .collect();
+        let just_finished = newly_finished(previous.as_ref(), &current);
+        let finished: Vec<(String, String, String)> = just_finished
+            .iter()
+            .filter_map(|id| page.builds.iter().find(|b| &b.id == id))
+            .map(|b| {
+                let app = page
+                    .names
+                    .get(&b.app_id)
+                    .cloned()
+                    .unwrap_or_else(|| "Unknown app".to_string());
+                (app, b.workflow_display().to_string(), b.status.clone())
+            })
+            .collect();
+        last_status.set(Some(current.into_iter().collect()));
+
         cached.set(Some(page));
         if !fresh.is_empty() {
             known_workflows.write().extend(fresh);
+        }
+
+        for (app, workflow, status) in finished {
+            let title = match codemagic_core::status::outcome(&status) {
+                Some(true) => "Build succeeded",
+                Some(false) => "Build failed",
+                None => "Build finished",
+            };
+            crate::notify::build_finished(title, &format!("{app} · {workflow} ({status})"));
         }
     });
 
@@ -343,6 +379,29 @@ fn relative_time(dt: DateTime<Utc>) -> String {
     }
 }
 
+/// Build ids that have just left a running state, given the statuses seen on
+/// the previous load.
+///
+/// Returns nothing when `previous` is `None` (the very first load), so builds
+/// that were already finished at startup don't all fire notifications at once.
+fn newly_finished(
+    previous: Option<&HashMap<String, String>>,
+    current: &[(String, String)],
+) -> Vec<String> {
+    let Some(prev) = previous else {
+        return Vec::new();
+    };
+    current
+        .iter()
+        .filter(|(id, status)| {
+            prev.get(id)
+                .is_some_and(|old| codemagic_core::status::is_running(old))
+                && !codemagic_core::status::is_running(status)
+        })
+        .map(|(id, _)| id.clone())
+        .collect()
+}
+
 /// Maps a Codemagic status string to a CSS modifier class.
 pub fn status_class(status: &str) -> &'static str {
     match status {
@@ -351,5 +410,67 @@ pub fn status_class(status: &str) -> &'static str {
         "canceled" => "cancel",
         "queued" | "preparing" | "building" | "testing" | "publishing" => "run",
         _ => "neutral",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    fn pairs(items: &[(&str, &str)]) -> Vec<(String, String)> {
+        items
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn first_load_never_notifies() {
+        // Everything is "new" on the first load; notifying would spam the user.
+        let current = pairs(&[("a", "finished"), ("b", "failed")]);
+        assert!(newly_finished(None, &current).is_empty());
+    }
+
+    #[test]
+    fn notifies_only_on_running_to_terminal() {
+        let previous = map(&[
+            ("a", "building"),  // -> finished: notify
+            ("b", "queued"),    // -> failed:   notify
+            ("c", "building"),  // -> testing:  still running, no
+            ("d", "finished"),  // -> finished: unchanged, no
+        ]);
+        let current = pairs(&[
+            ("a", "finished"),
+            ("b", "failed"),
+            ("c", "testing"),
+            ("d", "finished"),
+        ]);
+        let mut got = newly_finished(Some(&previous), &current);
+        got.sort();
+        assert_eq!(got, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn unseen_builds_do_not_notify() {
+        // A build that appears already-finished was never observed running.
+        let previous = map(&[("a", "building")]);
+        let current = pairs(&[("a", "building"), ("new", "finished")]);
+        assert!(newly_finished(Some(&previous), &current).is_empty());
+    }
+
+    #[test]
+    fn cancelled_and_timeout_count_as_finished() {
+        let previous = map(&[("a", "building"), ("b", "publishing")]);
+        let current = pairs(&[("a", "canceled"), ("b", "timeout")]);
+        let mut got = newly_finished(Some(&previous), &current);
+        got.sort();
+        assert_eq!(got, vec!["a".to_string(), "b".to_string()]);
     }
 }

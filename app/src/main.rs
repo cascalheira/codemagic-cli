@@ -7,6 +7,7 @@
 use dioxus::prelude::*;
 
 mod components;
+mod notify;
 mod state;
 
 use components::{BuildsScreen, Onboarding};
