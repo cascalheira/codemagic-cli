@@ -15,6 +15,32 @@ pub fn PlusIcon() -> Element {
 }
 
 #[component]
+pub fn BranchIcon() -> Element {
+    rsx! {
+        svg {
+            class: "icon glyph", view_box: "0 0 24 24", fill: "none", stroke: "currentColor",
+            stroke_width: "2", stroke_linecap: "round", stroke_linejoin: "round",
+            line { x1: "6", y1: "3", x2: "6", y2: "15" }
+            circle { cx: "18", cy: "6", r: "3" }
+            circle { cx: "6", cy: "18", r: "3" }
+            path { d: "M18 9a9 9 0 0 1-9 9" }
+        }
+    }
+}
+
+#[component]
+pub fn TagIcon() -> Element {
+    rsx! {
+        svg {
+            class: "icon glyph", view_box: "0 0 24 24", fill: "none", stroke: "currentColor",
+            stroke_width: "2", stroke_linecap: "round", stroke_linejoin: "round",
+            path { d: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" }
+            line { x1: "7", y1: "7", x2: "7.01", y2: "7" }
+        }
+    }
+}
+
+#[component]
 pub fn RefreshIcon() -> Element {
     rsx! {
         svg {

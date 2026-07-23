@@ -245,10 +245,21 @@ input:focus, select:focus, .token-input:focus {
   gap: 0.6rem;
   padding: 0.95rem 0.7rem;
   border-radius: 9px;
+  /* Rows cascade in on first load; existing rows never remount on refresh
+     (they're keyed by build id), so polling doesn't replay this. */
+  animation: row-in 0.22s ease both;
+}
+@keyframes row-in {
+  from { opacity: 0; transform: translateY(4px); }
 }
 .build-row:hover { background: var(--hover); }
-.build-row.selected { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.build-row.selected .bl-title { color: var(--text); }
+/* The one broken build should pop out of a sea of green titles. */
+.build-row.failed .bl-title { color: color-mix(in srgb, var(--danger) 72%, var(--text)); }
+/* Full-confidence macOS source-list selection: accent fill, white text. */
+.build-row.selected { background: var(--accent); }
+.build-row.selected .bl-title { color: #fff; }
+.build-row.selected .bl-time,
+.build-row.selected .bl-sub { color: rgba(255, 255, 255, 0.8); }
 /* Hairline separator between rows (inset to align under the title). */
 .build-row:not(:last-child)::after {
   content: "";
@@ -263,12 +274,18 @@ input:focus, select:focus, .token-input:focus {
 .build-row:hover + .build-row::after, .build-row.selected + .build-row::after { display: none; }
 
 /* Bottom toolbar */
-/* Workflow filter above the build list. */
+/* Workflow and status filters above the build list. Side by side, with the
+   workflow given the extra room: its names are far longer than a status. */
 .filter-bar {
+  display: flex;
+  gap: 0.4rem;
   padding: 0.3rem 0.7rem 0.45rem;
   border-bottom: 1px solid var(--sep);
 }
-.wf-filter {
+.filter-bar .wf-filter { flex: 2 1 0; min-width: 0; }
+.filter-bar .status-filter { flex: 1 1 0; min-width: 0; }
+
+.wf-filter, .status-filter {
   width: 100%;
   appearance: none;
   padding: 0.28rem 1.5rem 0.28rem 0.5rem;
@@ -284,7 +301,7 @@ input:focus, select:focus, .token-input:focus {
   background-position: right 0.45rem center;
   background-size: 11px;
 }
-.wf-filter:focus {
+.wf-filter:focus, .status-filter:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
@@ -336,7 +353,20 @@ input:focus, select:focus, .token-input:focus {
 .bl-top { display: flex; align-items: baseline; gap: 0.5rem; }
 .bl-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 12.5px; }
 .bl-time { flex-shrink: 0; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
-.bl-sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.2rem; }
+.bl-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  margin-top: 0.2rem;
+  min-width: 0;
+}
+.bl-app, .bl-ref { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.bl-ref { flex-shrink: 2; }
+.bl-num { flex-shrink: 0; }
+.bl-sub .icon.glyph { width: 10px; height: 10px; flex-shrink: 0; opacity: 0.75; }
 
 /* ── Status pills ───────────────────────────────────────── */
 .status {
@@ -377,17 +407,42 @@ input:focus, select:focus, .token-input:focus {
   background: var(--content-bg);
   padding: 0.7rem clamp(1.1rem, 2.2vw, 2rem) 2.5rem;
 }
-.detail-head { display: flex; align-items: center; gap: 0.7rem; min-height: var(--titlebar); margin-bottom: 1.1rem; }
+.detail-head { display: flex; align-items: center; gap: 0.8rem; min-height: var(--titlebar); margin-bottom: 1.1rem; }
 .detail-head-main { flex: 1; min-width: 0; }
 .detail-actions { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
-.detail-head h2 { margin: 0 0 0.1rem; font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
+.detail-head h2 {
+  margin: 0 0 0.15rem;
+  font-family: -apple-system, "SF Pro Display", BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .detail-head p { margin: 0; font-size: 12px; }
+
+/* Hero status pill: the build's outcome and total duration in one glance. */
+.status.hero {
+  min-width: 0;
+  font-size: 11.5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+.status.hero .status-dur { font-weight: 500; opacity: 0.9; font-variant-numeric: tabular-nums; white-space: pre; }
+
+/* A whisper of the outcome color washing down from the top of the pane, so
+   a build reads as green/red/amber before a single word is read. */
+.detail-center.wash-ok { background: linear-gradient(180deg, color-mix(in srgb, var(--ok) 7%, transparent), transparent 170px), var(--content-bg); }
+.detail-center.wash-fail { background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 8%, transparent), transparent 170px), var(--content-bg); }
+.detail-center.wash-run { background: linear-gradient(180deg, color-mix(in srgb, var(--run) 8%, transparent), transparent 170px), var(--content-bg); }
 
 .meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.85rem 1.25rem;
-  margin: 0 0 1.5rem;
+  margin: 0 0 0.8rem;
   padding: 0.95rem 1.15rem;
   background: var(--card);
   border: 1px solid var(--sep);
@@ -395,13 +450,52 @@ input:focus, select:focus, .token-input:focus {
 }
 .meta-item dt { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }
 .meta-item dd { margin: 0.16rem 0 0; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-/* The commit subject is long and variable; giving it the full width and one
-   line stops it reflowing the grid above it. */
-.meta-item.wide { grid-column: 1 / -1; }
-.meta-item.wide dd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.meta-sha { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); margin-right: 0.5rem; }
 
 .detail-center h3 { margin: 1.6rem 0 0.55rem; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+
+/* ── Commit card ────────────────────────────────────────── */
+.commit-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin: 0 0 1.5rem;
+  padding: 0.9rem 1.05rem;
+  background: var(--card);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius-lg);
+}
+.commit-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.commit-main { min-width: 0; flex: 1; }
+.commit-subject { margin: 0.1rem 0 0; font-size: 12.5px; font-weight: 600; word-break: break-word; }
+.commit-body {
+  margin: 0.4rem 0 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.commit-byline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  margin: 0.45rem 0 0;
+  font-size: 11px;
+  color: var(--faint);
+}
+.commit-sha { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* Steps as expandable accordions */
 .step-list {
@@ -419,9 +513,35 @@ input:focus, select:focus, .token-input:focus {
 .step-head .chevron { width: 13px; height: 13px; color: var(--faint); flex-shrink: 0; transition: transform 0.15s ease; }
 .step-row.open .step-head .chevron { transform: rotate(90deg); }
 .step-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
-.step-dur { font-size: 12px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.step-dur { font-size: 12px; flex-shrink: 0; font-variant-numeric: tabular-nums; min-width: 3.6rem; text-align: right; }
+
+/* Per-step duration bar: fill width is the step's share of the slowest
+   step, so where the build time went is visible at a glance. */
+.step-track {
+  width: 116px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--sep);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+}
+.step-bar { height: 100%; border-radius: 999px; }
+/* The step currently executing has no duration yet, so its bar sweeps. */
+.step-bar.indet { width: 40%; animation: indet 1.1s ease-in-out infinite; }
+.step-bar.ok { background: color-mix(in srgb, var(--ok) 80%, transparent); }
+.step-bar.fail { background: var(--danger); }
+.step-bar.run { background: var(--run); }
+.step-bar.cancel, .step-bar.neutral { background: var(--faint); }
 /* The <pre> inside is the scroller, not this box, so the toolbar stays put. */
-.step-log { border-top: 1px solid var(--sep); background: var(--content-bg); }
+.step-log {
+  border-top: 1px solid var(--sep);
+  background: var(--content-bg);
+  animation: step-open 0.16s ease;
+}
+@keyframes step-open {
+  from { opacity: 0; transform: translateY(-4px); }
+}
 .step-log .log-note { padding: 0.7rem 0.85rem; margin: 0; font-size: 12px; }
 /* Grows with the window instead of sitting at a fixed height while
    the column below it stays empty. */
@@ -462,12 +582,57 @@ input:focus, select:focus, .token-input:focus {
 .rail-head h3 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
 .rail-empty { font-size: 12px; }
 .artifact-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
-.artifact-card { background: var(--content-bg); border: 1px solid var(--sep); border-radius: var(--radius-lg); padding: 0.7rem 0.8rem; }
-.artifact-main { min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.artifact-card {
+  background: var(--content-bg);
+  border: 1px solid var(--sep);
+  border-radius: var(--radius-lg);
+  padding: 0.7rem 0.8rem;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.artifact-card.clickable:hover { border-color: var(--sep-strong); background: var(--hover); }
+.artifact-top { display: flex; align-items: center; gap: 0.65rem; }
+.artifact-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.1rem; }
 .artifact-name { font-weight: 600; font-size: 12.5px; word-break: break-word; }
-.artifact-main .muted { font-size: 11px; }
+.artifact-main .muted { font-size: 11px; font-variant-numeric: tabular-nums; }
 .artifact-actions { display: flex; gap: 0.35rem; margin-top: 0.6rem; }
 .artifact-actions button { flex: 1; justify-content: center; }
+
+/* File-type glyph, tinted by platform family. */
+.artifact-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.artifact-badge.android { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.artifact-badge.apple { color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); }
+.artifact-badge.doc { color: #af52de; background: color-mix(in srgb, #af52de 13%, transparent); }
+.artifact-badge.arch { color: var(--muted); background: var(--btn-bg); }
+@media (prefers-color-scheme: dark) {
+  .artifact-badge.doc { color: #bf5af2; background: color-mix(in srgb, #bf5af2 15%, transparent); }
+}
+
+/* Download affordance, revealed on hover; hidden while a download runs. */
+.artifact-hint { flex-shrink: 0; color: var(--muted); opacity: 0; transition: opacity 0.12s ease; }
+.artifact-card.clickable:hover .artifact-hint { opacity: 1; }
+.artifact-card.busy .artifact-hint { display: none; }
+
+/* In-card download progress. */
+.artifact-progress {
+  margin-top: 0.65rem;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--sep);
+  overflow: hidden;
+}
+.artifact-progress .fill { height: 100%; border-radius: 999px; background: var(--accent); transition: width 0.15s linear; }
+.artifact-progress .fill.indet { width: 40%; animation: indet 1.1s ease-in-out infinite; }
+@keyframes indet { from { margin-left: -40%; } to { margin-left: 100%; } }
 .dl-status { margin-top: 0.85rem; font-size: 11.5px; color: var(--muted); word-break: break-word; }
 
 /* ── Modals (native panels / sheets) ────────────────────── */

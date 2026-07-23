@@ -261,11 +261,23 @@ impl ApiClient {
         Ok(())
     }
 
-    /// Downloads any URL to a local path (streaming via byte buffer).
+    /// Downloads any URL to a local path.
     pub async fn download_file(&self, url: &str, dest: &std::path::Path) -> Result<()> {
+        self.download_file_progress(url, dest, |_, _| {}).await
+    }
+
+    /// Downloads any URL to a local path, streaming chunks straight to disk
+    /// (never buffering the whole file) and reporting progress after each
+    /// chunk as `(bytes_so_far, total_if_known)`.
+    pub async fn download_file_progress(
+        &self,
+        url: &str,
+        dest: &std::path::Path,
+        mut on_progress: impl FnMut(u64, Option<u64>),
+    ) -> Result<()> {
         use tokio::io::AsyncWriteExt;
 
-        let response = self
+        let mut response = self
             .client
             .get(url)
             .send()
@@ -276,16 +288,23 @@ impl ApiClient {
             bail!("Download error: HTTP {}", response.status());
         }
 
-        let bytes = response
-            .bytes()
-            .await
-            .context("Failed to read download bytes")?;
+        let total = response.content_length();
         let mut file = tokio::fs::File::create(dest)
             .await
             .context("Failed to create destination file")?;
-        file.write_all(&bytes)
+        let mut done: u64 = 0;
+        while let Some(chunk) = response
+            .chunk()
             .await
-            .context("Failed to write file")?;
+            .context("Failed to read download bytes")?
+        {
+            file.write_all(&chunk)
+                .await
+                .context("Failed to write file")?;
+            done += chunk.len() as u64;
+            on_progress(done, total);
+        }
+        file.flush().await.context("Failed to write file")?;
         Ok(())
     }
 }

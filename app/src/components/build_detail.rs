@@ -99,6 +99,22 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
         }
     });
 
+    // Heartbeat for live elapsed times: bumps once a second, but only while
+    // the build on screen is still running, so finished builds cost nothing.
+    let mut tick = use_signal(|| 0u64);
+    use_future(move || async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            let running = cached
+                .peek()
+                .as_ref()
+                .is_some_and(|(_, r)| is_running(&r.build.status));
+            if running {
+                tick += 1;
+            }
+        }
+    });
+
     let Some(sel_id) = selected.read().clone() else {
         return rsx! {
             div { class: "detail-empty muted",
@@ -142,7 +158,16 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
         .display_build_number()
         .map(|n| format!("#{n}"))
         .unwrap_or_default();
-    let duration = fmt_duration(build.started_at, build.finished_at);
+    // Subscribes to the heartbeat, so the elapsed times below tick each
+    // second while the build runs.
+    let _ = tick();
+    // A running build shows a live elapsed time instead of a blank.
+    let duration = fmt_duration(
+        build.started_at,
+        build
+            .finished_at
+            .or_else(|| is_running(&build.status).then(Utc::now)),
+    );
     let has_downloads = build.artefacts.iter().any(|a| a.url.is_some());
     let cancellable = is_cancellable(&build.status);
     let build_id = build.id.clone();
@@ -159,12 +184,17 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
     rsx! {
         div { class: "detail-body",
             // ── Center: build info + step logs ──────────────────────
-            div { class: "detail-center",
+            div { class: "detail-center wash-{status_class(&build.status)}",
                 div { class: "detail-head", onmousedown: move |_| crate::start_drag(),
-                    span { class: "status {status_class(&build.status)}", "{build.status}" }
                     div { class: "detail-head-main",
                         h2 { "{app_name}" }
                         p { class: "muted", "{build.workflow_display()}  ·  {build.git_ref()}  {number}" }
+                    }
+                    span { class: "status hero {status_class(&build.status)}",
+                        "{build.status}"
+                        if let Some(d) = duration.clone() {
+                            span { class: "status-dur", "  ·  {d}" }
+                        }
                     }
                     div { class: "detail-actions", onmousedown: move |e| e.stop_propagation(),
                     {
@@ -252,36 +282,17 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
                     MetaItem { label: "Started", value: fmt_time(build.display_time()) }
                     MetaItem { label: "Finished", value: fmt_time(build.finished_at) }
                     MetaItem { label: "Duration", value: duration.unwrap_or_else(|| "-".into()) }
-                    if let Some(commit) = &build.commit {
-                        {
-                            let sha = commit
-                                .sha
-                                .as_deref()
-                                .map(|s| s[..s.len().min(8)].to_string())
-                                .unwrap_or_default();
-                            let subject = commit
-                                .message
-                                .as_deref()
-                                .unwrap_or("-")
-                                .lines()
-                                .next()
-                                .unwrap_or("-")
-                                .to_string();
-                            // The whole message on hover, since the row is
-                            // clipped to a single line.
-                            let full = commit.message.clone().unwrap_or_default();
-                            rsx! {
-                                div { class: "meta-item wide",
-                                    dt { "Commit" }
-                                    dd { title: "{full}",
-                                        if !sha.is_empty() {
-                                            span { class: "meta-sha", "{sha}" }
-                                        }
-                                        "{subject}"
-                                    }
-                                }
-                            }
-                        }
+                    MetaItem {
+                        label: "Queued",
+                        value: fmt_duration(build.created_at, build.started_at)
+                            .unwrap_or_else(|| "-".into()),
+                    }
+                    MetaItem { label: "Artifacts", value: artifacts_summary(&build.artefacts) }
+                }
+
+                if let Some(commit) = build.commit.clone() {
+                    if commit.message.is_some() || commit.author.is_some() {
+                        CommitCard { commit }
                     }
                 }
 
@@ -289,15 +300,51 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
                 if build.build_actions.is_empty() {
                     p { class: "muted", "No steps recorded for this build." }
                 } else {
-                    ul { class: "step-list",
-                        for (i, action) in build.build_actions.iter().enumerate() {
-                            StepAccordion {
-                                key: "{i}-{action.name}",
-                                idx: i,
-                                name: action.name.clone(),
-                                status: action.status.clone().unwrap_or_default(),
-                                duration: fmt_duration(action.started_at, action.finished_at),
-                                log_url: action.log_url.clone(),
+                    {
+                        // Bars are scaled against the slowest step, so the
+                        // dominant one reads full-width and the rest show
+                        // their cost relative to it.
+                        let max_secs = build
+                            .build_actions
+                            .iter()
+                            .filter_map(|a| duration_secs(a.started_at, a.finished_at))
+                            .max()
+                            .unwrap_or(0);
+                        // The first failed step is why anyone opens a broken
+                        // build, so it arrives already expanded.
+                        let first_fail = build.build_actions.iter().position(|a| {
+                            a.status
+                                .as_deref()
+                                .is_some_and(|s| gantry_core::status::outcome(s) == Some(false))
+                        });
+                        rsx! {
+                            ul { class: "step-list",
+                                for (i, action) in build.build_actions.iter().enumerate() {
+                                    StepAccordion {
+                                        // Keyed by build too: switching builds must
+                                        // remount the accordions, resetting expansion
+                                        // and letting auto-open apply to this build.
+                                        key: "{build.id}-{i}-{action.name}",
+                                        auto_open: first_fail == Some(i),
+                                        idx: i,
+                                        name: action.name.clone(),
+                                        status: action.status.clone().unwrap_or_default(),
+                                        // A running step ticks its elapsed time live.
+                                        duration: fmt_duration(
+                                            action.started_at,
+                                            action.finished_at.or_else(|| {
+                                                action
+                                                    .status
+                                                    .as_deref()
+                                                    .is_some_and(is_running)
+                                                    .then(Utc::now)
+                                            }),
+                                        ),
+                                        frac: duration_secs(action.started_at, action.finished_at)
+                                            .map(|s| s as f64 / max_secs.max(1) as f64),
+                                        log_url: action.log_url.clone(),
+                                    }
+                                }
                             }
                         }
                     }
@@ -381,10 +428,14 @@ fn StepAccordion(
     name: String,
     status: String,
     duration: Option<String>,
+    /// This step's duration as a share of the slowest step's, for the bar.
+    frac: Option<f64>,
+    /// Start expanded (the build's first failed step), log already loading.
+    auto_open: bool,
     log_url: Option<String>,
 ) -> Element {
     let state = use_context::<AppState>();
-    let mut expanded = use_signal(|| false);
+    let mut expanded = use_signal(|| auto_open);
     let mut log = use_signal(|| LogState::Idle);
     let mut query = use_signal(String::new);
     let mut wrap = use_signal(|| true);
@@ -394,10 +445,13 @@ fn StepAccordion(
     // Only one build's steps are on screen at a time, so the index suffices.
     let log_id = format!("steplog-{idx}");
 
-    let toggle = move |_| {
-        let now = !expanded();
-        expanded.set(now);
-        if now && *log.read() == LogState::Idle {
+    // Kicks off the log fetch, once; shared by the click and the auto-open.
+    let load = {
+        let log_url = log_url.clone();
+        move || {
+            if *log.peek() != LogState::Idle {
+                return;
+            }
             match log_url.clone() {
                 None => log.set(LogState::Failed("This step has no log.".into())),
                 Some(url) => {
@@ -410,6 +464,27 @@ fn StepAccordion(
                         }
                     });
                 }
+            }
+        }
+    };
+
+    // A step that mounts open needs its log without waiting for a click.
+    use_hook({
+        let mut load = load.clone();
+        move || {
+            if auto_open {
+                load();
+            }
+        }
+    });
+
+    let toggle = {
+        let mut load = load.clone();
+        move |_| {
+            let now = !expanded();
+            expanded.set(now);
+            if now {
+                load();
             }
         }
     };
@@ -445,6 +520,26 @@ fn StepAccordion(
                     span { class: "status small {status_class(&status)}", "{status}" }
                 }
                 span { class: "step-name", "{name}" }
+                if let Some(frac) = frac {
+                    {
+                        // A 0s step still gets a sliver, so the track never
+                        // looks broken or empty.
+                        let pct = (frac * 100.0).max(2.5);
+                        rsx! {
+                            span { class: "step-track",
+                                span {
+                                    class: "step-bar {status_class(&status)}",
+                                    style: "width: {pct:.1}%",
+                                }
+                            }
+                        }
+                    }
+                } else if is_running(&status) {
+                    // No duration yet — the step in progress sweeps instead.
+                    span { class: "step-track",
+                        span { class: "step-bar run indet" }
+                    }
+                }
                 span { class: "step-dur muted", { duration.clone().unwrap_or_default() } }
             }
             if expanded() {
@@ -612,49 +707,106 @@ fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
     let meta = format!("{}  ·  {}", art.display_type(), art.display_size());
     let has_url = art.url.is_some();
     let is_aab = art.is_aab();
+    // `(done, total)` while a download of this artifact is in flight; the
+    // card renders its progress bar from this.
+    let mut progress = use_signal(|| Option::<(u64, Option<u64>)>::None);
+    let progress_now = *progress.read();
+    let busy = progress_now.is_some();
+
+    let (badge, family) = badge_of(&art);
+    // While downloading, the type/size line becomes a live byte counter.
+    let meta_line = match progress_now {
+        Some((done, Some(total))) => format!("{} of {}", fmt_bytes(done), fmt_bytes(total)),
+        Some((done, None)) => format!("{}…", fmt_bytes(done)),
+        None => meta,
+    };
 
     let art_dl = art.clone();
     let art_apk = art.clone();
     let client_dl = state.client();
     let client_apk = state.client();
 
-    rsx! {
-        li { class: "artifact-card",
-            div { class: "artifact-main",
-                span { class: "artifact-name", "{name}" }
-                span { class: "muted", "{meta}" }
-            }
-            div { class: "artifact-actions",
-                button {
-                    class: "ghost small",
-                    disabled: !has_url,
-                    onclick: move |_| {
-                        let art = art_dl.clone();
-                        let client = client_dl.clone();
-                        spawn(async move {
-                            let Some(handle) = rfd::AsyncFileDialog::new()
-                                .set_file_name(art.display_name())
-                                .save_file()
-                                .await
-                            else {
-                                return;
-                            };
-                            let dest = handle.path().to_path_buf();
-                            dl_status.set(Some(format!("Downloading {}…", art.display_name())));
-                            match download_to(client, art, dest).await {
-                                Ok(path) => dl_status.set(Some(format!("Saved to {}", path.display()))),
-                                Err(e) => dl_status.set(Some(format!("Failed: {e}"))),
-                            }
-                        });
-                    },
-                    DownloadIcon {}
-                    span { "Download" }
+    // The whole card is the download control.
+    let download = move |_| {
+        if !has_url || progress.peek().is_some() {
+            return;
+        }
+        let art = art_dl.clone();
+        let client = client_dl.clone();
+        spawn(async move {
+            let Some(handle) = rfd::AsyncFileDialog::new()
+                .set_file_name(art.display_name())
+                .save_file()
+                .await
+            else {
+                return;
+            };
+            let dest = handle.path().to_path_buf();
+            progress.set(Some((0, None)));
+            let result = async {
+                let url = art
+                    .url
+                    .clone()
+                    .ok_or_else(|| anyhow::anyhow!("Artifact has no download URL"))?;
+                let public_url = client.create_artifact_public_url(&url).await?;
+                if let Some(parent) = dest.parent() {
+                    std::fs::create_dir_all(parent)?;
                 }
-                if is_aab {
+                // Re-render per chunk would be thousands of updates for a
+                // big artifact, so progress is only pushed every 256 KB.
+                let mut last = 0u64;
+                client
+                    .download_file_progress(&public_url, &dest, move |done, total| {
+                        if done - last >= 256 * 1024 {
+                            last = done;
+                            progress.set(Some((done, total)));
+                        }
+                    })
+                    .await
+            }
+            .await;
+            progress.set(None);
+            match result {
+                Ok(()) => dl_status.set(Some(format!("Saved to {}", dest.display()))),
+                Err(e) => dl_status.set(Some(format!("Failed: {e}"))),
+            }
+        });
+    };
+
+    rsx! {
+        li {
+            class: if busy { "artifact-card busy" } else if has_url { "artifact-card clickable" } else { "artifact-card" },
+            title: if has_url && !busy { "Download {name}" },
+            onclick: download,
+            div { class: "artifact-top",
+                span { class: "artifact-badge {family}", "{badge}" }
+                div { class: "artifact-main",
+                    span { class: "artifact-name", "{name}" }
+                    span { class: "muted", "{meta_line}" }
+                }
+                span { class: "artifact-hint", DownloadIcon {} }
+            }
+            if let Some((done, total)) = progress_now {
+                div { class: "artifact-progress",
+                    if let Some(total) = total.filter(|t| *t > 0) {
+                        div {
+                            class: "fill",
+                            style: "width: {(done as f64 / total as f64 * 100.0).min(100.0):.1}%",
+                        }
+                    } else {
+                        div { class: "fill indet" }
+                    }
+                }
+            }
+            if is_aab {
+                div { class: "artifact-actions",
                     button {
                         class: "ghost small",
-                        disabled: !has_url,
-                        onclick: move |_| {
+                        disabled: !has_url || busy,
+                        onclick: move |e| {
+                            // The whole card downloads on click; converting
+                            // must not also trigger that.
+                            e.stop_propagation();
                             let art = art_apk.clone();
                             let client = client_apk.clone();
                             spawn(async move {
@@ -682,6 +834,119 @@ fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
                 }
             }
         }
+    }
+}
+
+// ─── Commit card ─────────────────────────────────────────────────────────────
+
+#[component]
+fn CommitCard(commit: gantry_core::models::Commit) -> Element {
+    let author = commit.author.clone().unwrap_or_default();
+    let sha = commit
+        .sha
+        .as_deref()
+        .map(|s| s[..s.len().min(8)].to_string())
+        .unwrap_or_default();
+    let message = commit.message.clone().unwrap_or_default();
+    let mut lines = message.lines();
+    let subject = lines.next().unwrap_or("").to_string();
+    let body = lines.collect::<Vec<_>>().join("\n").trim().to_string();
+
+    rsx! {
+        div { class: "commit-card",
+            span {
+                class: "commit-avatar",
+                style: "background: hsl({avatar_hue(&author)}, 45%, 48%)",
+                "{initials(&author)}"
+            }
+            div { class: "commit-main",
+                if !subject.is_empty() {
+                    p { class: "commit-subject selectable", "{subject}" }
+                }
+                if !body.is_empty() {
+                    pre { class: "commit-body selectable", "{body}" }
+                }
+                p { class: "commit-byline",
+                    if !author.is_empty() {
+                        span { "{author}" }
+                    }
+                    if !sha.is_empty() {
+                        span { class: "commit-sha selectable", "{sha}" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Up to two initials from the first and last words of a name, "?" when empty.
+fn initials(name: &str) -> String {
+    let mut words = name.split_whitespace();
+    let first = words.next();
+    let last = words.next_back();
+    let letter = |w: Option<&str>| w.and_then(|w| w.chars().next());
+    match (letter(first), letter(last)) {
+        (Some(a), Some(b)) => format!("{}{}", a.to_uppercase(), b.to_uppercase()),
+        (Some(a), None) => a.to_uppercase().to_string(),
+        _ => "?".to_string(),
+    }
+}
+
+/// Stable hue for a name, so each author keeps their avatar color.
+fn avatar_hue(name: &str) -> u32 {
+    name.bytes()
+        .fold(0u32, |h, b| h.wrapping_mul(31).wrapping_add(u32::from(b)))
+        % 360
+}
+
+/// Badge label and color family for an artifact's file-type glyph.
+///
+/// The API's type field is authoritative; the file extension is only a
+/// fallback for types it doesn't set.
+fn badge_of(art: &Artefact) -> (String, &'static str) {
+    let kind = art.display_type().to_lowercase();
+    let (label, family) = match kind.as_str() {
+        "aab" => ("AAB", "android"),
+        "apk" => ("APK", "android"),
+        "ipa" => ("IPA", "apple"),
+        "app" => ("APP", "apple"),
+        "dsym" => ("SYM", "apple"),
+        "proguard_map" => ("MAP", "doc"),
+        "txt" => ("TXT", "doc"),
+        "log" => ("LOG", "doc"),
+        "zip" => ("ZIP", "arch"),
+        _ => {
+            let ext = art
+                .display_name()
+                .rsplit_once('.')
+                .map(|(_, e)| e.to_uppercase())
+                .filter(|e| !e.is_empty() && e.len() <= 4)
+                .unwrap_or_else(|| "FILE".to_string());
+            return (ext, "arch");
+        }
+    };
+    (label.to_string(), family)
+}
+
+/// "3 · 253.4 MB" for the artifacts stat, "None" for an artifact-less build.
+fn artifacts_summary(arts: &[Artefact]) -> String {
+    if arts.is_empty() {
+        return "None".to_string();
+    }
+    let total: u64 = arts.iter().filter_map(|a| a.size).sum();
+    if total == 0 {
+        return arts.len().to_string();
+    }
+    format!("{} · {}", arts.len(), fmt_bytes(total))
+}
+
+fn fmt_bytes(bytes: u64) -> String {
+    const MB: f64 = 1_024.0 * 1_024.0;
+    match bytes {
+        b if (b as f64) < 1_024.0 => format!("{b} B"),
+        b if (b as f64) < MB => format!("{:.1} KB", b as f64 / 1_024.0),
+        b if (b as f64) < MB * 1_024.0 => format!("{:.1} MB", b as f64 / MB),
+        b => format!("{:.2} GB", b as f64 / (MB * 1_024.0)),
     }
 }
 
@@ -728,6 +993,11 @@ use gantry_core::status::{is_cancellable, is_running};
 fn fmt_time(t: Option<DateTime<Utc>>) -> String {
     t.map(|t| t.format("%Y-%m-%d %H:%M").to_string())
         .unwrap_or_else(|| "-".to_string())
+}
+
+fn duration_secs(start: Option<DateTime<Utc>>, end: Option<DateTime<Utc>>) -> Option<i64> {
+    let secs = (end? - start?).num_seconds();
+    (secs >= 0).then_some(secs)
 }
 
 fn fmt_duration(start: Option<DateTime<Utc>>, end: Option<DateTime<Utc>>) -> Option<String> {
