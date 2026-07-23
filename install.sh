@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# install.sh — installs the latest codemagic-cli release on macOS and Linux.
+# install.sh — installs the latest gantry-cli release on macOS and Linux.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.sh | sh
@@ -11,7 +11,7 @@
 set -e
 
 REPO="cascalheira/codemagic-cli"
-BINARY="codemagic-cli"
+BINARY="gantry-cli"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # ── Detect OS ──────────────────────────────────────────────────────────────

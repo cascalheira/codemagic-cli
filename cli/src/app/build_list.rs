@@ -69,8 +69,8 @@ impl App {
         let Some(build) = self.builds.get(self.selected_index) else {
             return;
         };
-        let url = codemagic_core::web::build_url(&build.app_id, &build.id);
-        codemagic_core::web::open_in_browser(&url);
+        let url = gantry_core::web::build_url(&build.app_id, &build.id);
+        gantry_core::web::open_in_browser(&url);
     }
 
     pub(crate) fn open_filter_popup(&mut self) {

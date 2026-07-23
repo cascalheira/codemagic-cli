@@ -11,10 +11,10 @@ use crate::models::Artefact;
 // ─── AAB → APK conversion ─────────────────────────────────────────────────────
 
 /// Converts an AAB artefact to a universal APK and saves it under the structured
-/// download path `~/Codemagic/{app}/{workflow}/{build_index}/{name}.apk`.
+/// download path `~/Gantry/{app}/{workflow}/{build_index}/{name}.apk`.
 ///
 /// The heavy lifting (bundletool resolution, download, conversion, extraction)
-/// lives in `codemagic-core`; here we just choose the destination and forward
+/// lives in `gantry-core`; here we just choose the destination and forward
 /// progress to the TUI as `ApkStatus` messages.
 pub(crate) async fn convert_aab_to_apk(
     client: ApiClient,
@@ -33,7 +33,7 @@ pub(crate) async fn convert_aab_to_apk(
     let apk_name = format!("{stem}.apk");
     let dest = artifact_download_path(&app_name, &workflow_name, build_index, &apk_name);
 
-    codemagic_core::bundletool::convert_aab_to_apk(&client, &artefact, &dest, move |msg| {
+    gantry_core::bundletool::convert_aab_to_apk(&client, &artefact, &dest, move |msg| {
         let _ = tx.try_send(AppMessage::ApkStatus(msg));
     })
     .await
@@ -42,7 +42,7 @@ pub(crate) async fn convert_aab_to_apk(
 // ─── Artifact direct download ─────────────────────────────────────────────────
 
 /// Downloads a single build artefact into the structured local directory:
-/// `~/Codemagic/{app_name}/{workflow_name}/{build_index}/{artifact_name}`
+/// `~/Gantry/{app_name}/{workflow_name}/{build_index}/{artifact_name}`
 pub(crate) async fn download_artifact(
     client: ApiClient,
     artifact_url: String,
@@ -72,7 +72,7 @@ pub(crate) async fn download_artifact(
 
 /// Returns the canonical local path for a build artefact.
 ///
-/// `~/Codemagic/{app}/{workflow}/{build_index}/{filename}`
+/// `~/Gantry/{app}/{workflow}/{build_index}/{filename}`
 fn artifact_download_path(
     app_name: &str,
     workflow_name: &str,
@@ -84,7 +84,7 @@ fn artifact_download_path(
         .map(|i| i.to_string())
         .unwrap_or_else(|| "unknown".to_string());
 
-    home.join("Codemagic")
+    home.join("Gantry")
         .join(sanitize_path_component(app_name))
         .join(sanitize_path_component(workflow_name))
         .join(sanitize_path_component(&index))

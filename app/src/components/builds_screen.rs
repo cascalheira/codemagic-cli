@@ -4,7 +4,7 @@
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Local, Utc};
-use codemagic_core::{PAGE_SIZE, models::Build};
+use gantry_core::{PAGE_SIZE, models::Build};
 use dioxus::prelude::*;
 
 use super::build_detail::BuildDetail;
@@ -140,7 +140,7 @@ pub fn BuildsScreen() -> Element {
         }
 
         for (app, workflow, status) in finished {
-            let title = match codemagic_core::status::outcome(&status) {
+            let title = match gantry_core::status::outcome(&status) {
                 Some(true) => "Build succeeded",
                 Some(false) => "Build failed",
                 None => "Build finished",
@@ -397,8 +397,8 @@ fn newly_finished(
         .iter()
         .filter(|(id, status)| {
             prev.get(id)
-                .is_some_and(|old| codemagic_core::status::is_running(old))
-                && !codemagic_core::status::is_running(status)
+                .is_some_and(|old| gantry_core::status::is_running(old))
+                && !gantry_core::status::is_running(status)
         })
         .map(|(id, _)| id.clone())
         .collect()

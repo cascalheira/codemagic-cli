@@ -30,7 +30,7 @@ pub(super) fn draw_onboarding(f: &mut Frame, app: &App) {
         .title(Line::from(vec![
             Span::raw(" "),
             Span::styled(
-                "Codemagic CLI",
+                "Gantry",
                 Style::default()
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),

@@ -1,10 +1,10 @@
 [application]
-name = "codemagic-app"
+name = "gantry"
 
 [web.app]
-title = "Codemagic"
+title = "Gantry"
 
 [bundle]
-identifier = "io.codemagic.client"
-publisher = "Codemagic Client"
+identifier = "io.github.cascalheira.gantry"
+publisher = "Gantry"
 icon = ["assets/icon.icns", "assets/icon.ico", "assets/icon-1024.png"]

@@ -1,6 +1,6 @@
 //! Shared application state, provided via Dioxus context.
 
-use codemagic_core::{ApiClient, config};
+use gantry_core::{ApiClient, config};
 use dioxus::prelude::*;
 
 /// Default auto-refresh interval (seconds) when none is configured.

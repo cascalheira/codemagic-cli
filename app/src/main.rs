@@ -1,6 +1,6 @@
-//! Cross-platform Codemagic client (desktop + mobile) built with Dioxus.
+//! Gantry — a cross-platform Codemagic client (desktop + mobile), built with Dioxus.
 //!
-//! The data layer is shared with the terminal client via `codemagic-core`; this
+//! The data layer is shared with the terminal client via `gantry-core`; this
 //! crate only owns the view layer. The scaffold currently ships two screens:
 //! token onboarding and the build list.
 
@@ -23,7 +23,7 @@ fn main() {
         use dioxus::desktop::{Config, LogicalSize, WindowBuilder};
         #[allow(unused_mut)]
         let mut window = WindowBuilder::new()
-            .with_title("Codemagic")
+            .with_title("Gantry")
             .with_always_on_top(false)
             .with_inner_size(LogicalSize::new(1180.0, 760.0))
             .with_min_inner_size(LogicalSize::new(720.0, 480.0));

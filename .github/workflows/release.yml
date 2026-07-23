@@ -26,23 +26,23 @@ jobs:
           - name: macOS · x86-64 (cross-compiled)
             runner: macos-latest
             target: x86_64-apple-darwin
-            artifact: codemagic-cli-macos-x86_64
+            artifact: gantry-cli-macos-x86_64
 
           - name: macOS · arm64
             runner: macos-latest
             target: aarch64-apple-darwin
-            artifact: codemagic-cli-macos-aarch64
+            artifact: gantry-cli-macos-aarch64
 
           # ── Linux ────────────────────────────────────────────────────────────
           - name: Linux · x86-64
             runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact: codemagic-cli-linux-x86_64
+            artifact: gantry-cli-linux-x86_64
 
           - name: Linux · arm64
             runner: ubuntu-24.04-arm # native ARM64 GitHub-hosted runner
             target: aarch64-unknown-linux-gnu
-            artifact: codemagic-cli-linux-aarch64
+            artifact: gantry-cli-linux-aarch64
 
           # ── Windows ──────────────────────────────────────────────────────────
           # x86-64 on the standard hosted runner; arm64 on the native ARM64
@@ -51,12 +51,12 @@ jobs:
           - name: Windows · x86-64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact: codemagic-cli-windows-x86_64
+            artifact: gantry-cli-windows-x86_64
 
           - name: Windows · arm64
             runner: windows-11-arm
             target: aarch64-pc-windows-msvc
-            artifact: codemagic-cli-windows-aarch64
+            artifact: gantry-cli-windows-aarch64
 
     steps:
       - name: Checkout
@@ -81,12 +81,12 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y pkg-config libssl-dev
 
-      # Build only the CLI package. The GUI app (`codemagic-app`) enables the
+      # Build only the CLI package. The GUI app (`gantry`) enables the
       # `desktop` feature by default, which pulls in webkit2gtk on Linux — not
       # installed on these runners. The desktop app is bundled separately in the
       # `bundle` job below.
       - name: Build release binary
-        run: cargo build --release --locked --target ${{ matrix.target }} -p codemagic-cli
+        run: cargo build --release --locked --target ${{ matrix.target }} -p gantry-cli
 
       # Reduces binary size — safe for distribution builds.
       # Must happen BEFORE signing — stripping after signing invalidates the signature.
@@ -94,7 +94,7 @@ jobs:
       # cannot safely process; debug info is simply not embedded in release builds.
       - name: Strip debug symbols
         if: runner.os != 'Windows'
-        run: strip target/${{ matrix.target }}/release/codemagic-cli
+        run: strip target/${{ matrix.target }}/release/gantry-cli
 
       # ── macOS code signing ────────────────────────────────────────────────
       # Import the Developer ID Application certificate into a short-lived
@@ -139,11 +139,11 @@ jobs:
             --options runtime \
             --sign "$SIGNING_IDENTITY" \
             --timestamp \
-            target/${{ matrix.target }}/release/codemagic-cli
+            target/${{ matrix.target }}/release/gantry-cli
 
           # Verify the signature looks correct before continuing
           codesign --verify --deep --strict --verbose=2 \
-            target/${{ matrix.target }}/release/codemagic-cli
+            target/${{ matrix.target }}/release/gantry-cli
 
       # Notarize the signed binary with Apple.
       # notarytool requires a zip/dmg/pkg — wrap the binary, submit, then discard the zip.
@@ -156,17 +156,17 @@ jobs:
         run: |
           # Wrap into a zip for submission (notarytool does not accept bare binaries)
           ditto -c -k --keepParent \
-            target/${{ matrix.target }}/release/codemagic-cli \
-            /tmp/codemagic-cli-notarize.zip
+            target/${{ matrix.target }}/release/gantry-cli \
+            /tmp/gantry-cli-notarize.zip
 
           # Submit and wait for Apple to finish (usually < 2 min)
-          xcrun notarytool submit /tmp/codemagic-cli-notarize.zip \
+          xcrun notarytool submit /tmp/gantry-cli-notarize.zip \
             --apple-id      "$APPLE_ID" \
             --password      "$APPLE_APP_PASSWORD" \
             --team-id       "$APPLE_TEAM_ID" \
             --wait
 
-          rm /tmp/codemagic-cli-notarize.zip
+          rm /tmp/gantry-cli-notarize.zip
 
       # Always remove the temporary keychain, even if a previous step failed.
       - name: Clean up keychain
@@ -174,23 +174,23 @@ jobs:
         run: security delete-keychain build.keychain || true
 
       # Pack the binary and generate a SHA-256 checksum.
-      # • Windows  → codemagic-cli.exe  packaged as .zip
-      # • macOS    → codemagic-cli      packaged as .tar.gz  (shasum)
-      # • Linux    → codemagic-cli      packaged as .tar.gz  (sha256sum)
+      # • Windows  → gantry-cli.exe  packaged as .zip
+      # • macOS    → gantry-cli      packaged as .tar.gz  (shasum)
+      # • Linux    → gantry-cli      packaged as .tar.gz  (sha256sum)
       - name: Package
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp "target/${{ matrix.target }}/release/codemagic-cli.exe" codemagic-cli.exe
+            cp "target/${{ matrix.target }}/release/gantry-cli.exe" gantry-cli.exe
             powershell -Command "
               Compress-Archive \
-                -Path 'codemagic-cli.exe' \
+                -Path 'gantry-cli.exe' \
                 -DestinationPath '${{ matrix.artifact }}.zip'"
             sha256sum "${{ matrix.artifact }}.zip" \
               > "${{ matrix.artifact }}.zip.sha256"
           else
-            cp target/${{ matrix.target }}/release/codemagic-cli codemagic-cli
-            tar -czf "${{ matrix.artifact }}.tar.gz" codemagic-cli
+            cp target/${{ matrix.target }}/release/gantry-cli gantry-cli
+            tar -czf "${{ matrix.artifact }}.tar.gz" gantry-cli
 
             # sha256sum command differs between macOS and GNU/Linux
             if [[ "$RUNNER_OS" == "macOS" ]]; then
@@ -227,19 +227,19 @@ jobs:
             runner: macos-latest
             target: aarch64-apple-darwin
             package_types: macos
-            artifact: codemagic-app-macos-aarch64
+            artifact: gantry-macos-aarch64
 
           - name: App · macOS x86-64 (cross-compiled)
             runner: macos-latest
             target: x86_64-apple-darwin
             package_types: macos
-            artifact: codemagic-app-macos-x86_64
+            artifact: gantry-macos-x86_64
 
           - name: App · Windows x86-64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
             package_types: nsis
-            artifact: codemagic-app-windows-x86_64
+            artifact: gantry-windows-x86_64
 
           # Native ARM64 runner: builds + bundles aarch64 without cross-compiling
           # aws-lc-sys (see the CLI job's Windows note).
@@ -247,7 +247,7 @@ jobs:
             runner: windows-11-arm
             target: aarch64-pc-windows-msvc
             package_types: nsis
-            artifact: codemagic-app-windows-aarch64
+            artifact: gantry-windows-aarch64
 
     steps:
       - name: Checkout
@@ -317,7 +317,7 @@ jobs:
         run: |
           APP="$(ls -d dist/*.app | head -1)"
           codesign --force --options runtime --timestamp \
-            --sign "$SIGNING_IDENTITY" "$APP/Contents/MacOS/codemagic-app"
+            --sign "$SIGNING_IDENTITY" "$APP/Contents/MacOS/gantry"
           codesign --force --options runtime --timestamp \
             --sign "$SIGNING_IDENTITY" "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"

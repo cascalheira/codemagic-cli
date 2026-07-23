@@ -885,53 +885,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codemagic-app"
-version = "2.0.1"
-dependencies = [
- "anyhow",
- "chrono",
- "codemagic-core",
- "dioxus",
- "notify-rust",
- "rfd 0.15.4",
- "tokio",
- "window-vibrancy",
-]
-
-[[package]]
-name = "codemagic-cli"
-version = "2.0.1"
-dependencies = [
- "anyhow",
- "arboard",
- "chrono",
- "clap",
- "codemagic-core",
- "crossterm",
- "dirs",
- "ratatui",
- "reqwest 0.13.2",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "codemagic-core"
-version = "2.0.1"
-dependencies = [
- "anyhow",
- "chrono",
- "dirs",
- "reqwest 0.13.2",
- "serde",
- "serde_json",
- "tokio",
- "toml 1.1.1+spec-1.1.0",
- "zip",
-]
-
-[[package]]
 name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2535,6 +2488,53 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
 dependencies = [
  "byteorder",
+]
+
+[[package]]
+name = "gantry"
+version = "2.0.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dioxus",
+ "gantry-core",
+ "notify-rust",
+ "rfd 0.15.4",
+ "tokio",
+ "window-vibrancy",
+]
+
+[[package]]
+name = "gantry-cli"
+version = "2.0.1"
+dependencies = [
+ "anyhow",
+ "arboard",
+ "chrono",
+ "clap",
+ "crossterm",
+ "dirs",
+ "gantry-core",
+ "ratatui",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "gantry-core"
+version = "2.0.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dirs",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml 1.1.1+spec-1.1.0",
+ "zip",
 ]
 
 [[package]]

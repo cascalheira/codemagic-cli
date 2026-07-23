@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use codemagic_core::{
+use gantry_core::{
     ApiClient,
     models::{Artefact, BuildDetailResponse},
 };
@@ -158,12 +158,12 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                         p { class: "muted", "{build.workflow_display()}  ·  {build.git_ref()}  {number}" }
                     }
                     {
-                        let url = codemagic_core::web::build_url(&build.app_id, &build.id);
+                        let url = gantry_core::web::build_url(&build.app_id, &build.id);
                         rsx! {
                             button {
                                 class: "ghost icon-btn",
                                 title: "Open in Codemagic",
-                                onclick: move |_| codemagic_core::web::open_in_browser(&url),
+                                onclick: move |_| gantry_core::web::open_in_browser(&url),
                                 ExternalLinkIcon {}
                             }
                         }
@@ -414,7 +414,7 @@ fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
                             let client = client_apk.clone();
                             spawn(async move {
                                 let Some(handle) = rfd::AsyncFileDialog::new()
-                                    .set_file_name(codemagic_core::bundletool::suggested_apk_name(&art))
+                                    .set_file_name(gantry_core::bundletool::suggested_apk_name(&art))
                                     .save_file()
                                     .await
                                 else {
@@ -422,7 +422,7 @@ fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
                                 };
                                 let dest = handle.path().to_path_buf();
                                 let status = dl_status;
-                                let result = codemagic_core::bundletool::convert_aab_to_apk(
+                                let result = gantry_core::bundletool::convert_aab_to_apk(
                                     &client, &art, &dest,
                                     move |m| { let mut s = status; s.set(Some(m)); },
                                 ).await;
@@ -478,7 +478,7 @@ fn sanitize(name: &str) -> String {
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
-use codemagic_core::status::{is_cancellable, is_running};
+use gantry_core::status::{is_cancellable, is_running};
 
 fn fmt_time(t: Option<DateTime<Utc>>) -> String {
     t.map(|t| t.format("%Y-%m-%d %H:%M").to_string())

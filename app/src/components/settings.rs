@@ -1,6 +1,6 @@
 //! Settings modal: API token, auto-refresh interval, and sign out.
 
-use codemagic_core::ApiClient;
+use gantry_core::ApiClient;
 use dioxus::prelude::*;
 
 use crate::state::{AppState, MIN_REFRESH_SECS};

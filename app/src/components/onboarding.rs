@@ -1,6 +1,6 @@
 //! First-run screen: collect and validate a Codemagic API token.
 
-use codemagic_core::ApiClient;
+use gantry_core::ApiClient;
 use dioxus::prelude::*;
 
 use crate::state::AppState;
@@ -51,7 +51,7 @@ pub fn Onboarding() -> Element {
     rsx! {
         section { class: "onboarding",
             div { class: "card",
-                h1 { "Codemagic" }
+                h1 { "Gantry" }
                 p { class: "muted",
                     "Paste your API token to get started. Find it under "
                     "Codemagic → Teams → Personal Account → Integrations → API tokens."

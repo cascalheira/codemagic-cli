@@ -3,7 +3,7 @@
 //! This is inherently desktop-only: it shells out to `bundletool` (or
 //! `java -jar`) and, if neither a `bundletool` binary nor a cached JAR is
 //! present, downloads the latest JAR from GitHub. It is shared by the terminal
-//! and GUI clients through `codemagic-core`.
+//! and GUI clients through `gantry-core`.
 //!
 //! Progress is reported through a `status` callback so each front end can
 //! surface it however it likes (status bar, toast, etc.).
@@ -52,7 +52,7 @@ pub async fn convert_aab_to_apk(
     let public_url = client.create_artifact_public_url(aab_url).await?;
 
     // 2. Download the AAB to a temp workspace.
-    let tmp = std::env::temp_dir().join("codemagic-app");
+    let tmp = std::env::temp_dir().join("gantry");
     tokio::fs::create_dir_all(&tmp).await?;
     let aab_name = aab.name.as_deref().unwrap_or("app.aab");
     let stem = aab_name.trim_end_matches(".aab");
@@ -128,11 +128,11 @@ pub fn suggested_apk_name(aab: &Artefact) -> String {
 // ─── bundletool resolution ───────────────────────────────────────────────────
 
 /// Path to the cached bundletool JAR (shared with the CLI):
-/// `~/.config/codemagic-cli/bundletool.jar`.
+/// `~/.config/gantry/bundletool.jar`.
 fn bundletool_jar_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("codemagic-cli")
+        .join("gantry")
         .join("bundletool.jar")
 }
 
@@ -180,7 +180,7 @@ async fn ensure_bundletool<F: FnMut(String)>(status: &mut F) -> Result<Bundletoo
     status("Downloading bundletool JAR (one-time)…".into());
     let bytes = http
         .get(&jar_url)
-        .header("User-Agent", "codemagic-cli")
+        .header("User-Agent", "gantry")
         .send()
         .await
         .context("Failed to download bundletool JAR")?
@@ -218,7 +218,7 @@ async fn fetch_bundletool_jar_url(http: &reqwest::Client) -> Result<String> {
 
     let release: Release = http
         .get("https://api.github.com/repos/google/bundletool/releases/latest")
-        .header("User-Agent", "codemagic-cli")
+        .header("User-Agent", "gantry")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await

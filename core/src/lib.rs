@@ -1,6 +1,6 @@
 //! Shared Codemagic.io engine: REST API client, data models, and config
-//! persistence. Consumed by both the terminal client (`codemagic-cli`) and the
-//! cross-platform Dioxus GUI (`codemagic-app`).
+//! persistence. Consumed by both the terminal client (`gantry-cli`) and the
+//! cross-platform Dioxus GUI (`gantry`).
 //!
 //! Nothing in this crate depends on a UI toolkit, so it compiles unchanged for
 //! macOS, Windows, Linux, iOS, and Android.

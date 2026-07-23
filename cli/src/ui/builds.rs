@@ -21,7 +21,7 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
     // ── Title bar ──
     f.render_widget(
         Paragraph::new(Line::from(vec![Span::styled(
-            " Codemagic Builds ",
+            " Gantry Builds ",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),

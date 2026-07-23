@@ -1,6 +1,10 @@
-# codemagic-cli  (Vibecoded AI slop - but hey, it works!)
+# Gantry  (Vibecoded AI slop - but hey, it works!)
 
 A terminal UI and CLI tool for [Codemagic CI/CD](https://codemagic.io), built with [ratatui](https://ratatui.rs).
+
+> Gantry is an **unofficial** client for Codemagic. It is not affiliated with,
+> endorsed by, or sponsored by Codemagic / Nevercode Ltd. "Codemagic" is used
+> only to describe what this tool talks to.
 
 ---
 
@@ -10,12 +14,12 @@ This repository is a Cargo workspace with three crates:
 
 | Crate | What it is |
 |---|---|
-| [`core/`](core) | `codemagic-core` — the shared API client, data models, and config. No UI dependencies, so it compiles for desktop **and** mobile. |
-| [`cli/`](cli) | `codemagic-cli` — the terminal UI + CLI (this document). |
-| [`app/`](app) | `codemagic-app` — a cross-platform Dioxus GUI (desktop + iOS/Android). See [`app/README.md`](app/README.md). |
+| [`core/`](core) | `gantry-core` — the shared API client, data models, and config. No UI dependencies, so it compiles for desktop **and** mobile. |
+| [`cli/`](cli) | `gantry-cli` — the terminal UI + CLI (this document). |
+| [`app/`](app) | `gantry` — a cross-platform Dioxus GUI (desktop + iOS/Android). See [`app/README.md`](app/README.md). |
 
 Build everything with `cargo build`; build just the terminal client with
-`cargo build -p codemagic-cli`.
+`cargo build -p gantry-cli`.
 
 ---
 
@@ -31,7 +35,7 @@ Build everything with `cargo build`; build just the terminal client with
 
 ---
 
-![Codemagic CLI — Builds list](screenshots/screenshot.png)
+![Gantry — Builds list](screenshots/screenshot.png)
 
 ---
 
@@ -69,7 +73,7 @@ irm https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.ps1
 
 The script detects your CPU architecture (x86-64 or arm64), downloads the
 matching `.zip` from the latest GitHub release, verifies the SHA-256 checksum,
-extracts the binary to `%LOCALAPPDATA%\codemagic-cli`, and adds that directory
+extracts the binary to `%LOCALAPPDATA%\gantry`, and adds that directory
 to your user `PATH` automatically.
 
 **Options** — set environment variables before the pipe:
@@ -94,12 +98,12 @@ Pre-built binaries for every platform are attached to every
 
 | File | Platform |
 |------|----------|
-| `codemagic-cli-macos-aarch64.tar.gz` | macOS Apple Silicon |
-| `codemagic-cli-macos-x86_64.tar.gz` | macOS Intel |
-| `codemagic-cli-linux-x86_64.tar.gz` | Linux x86-64 |
-| `codemagic-cli-linux-aarch64.tar.gz` | Linux arm64 |
-| `codemagic-cli-windows-x86_64.zip` | Windows x86-64 |
-| `codemagic-cli-windows-aarch64.zip` | Windows arm64 |
+| `gantry-cli-macos-aarch64.tar.gz` | macOS Apple Silicon |
+| `gantry-cli-macos-x86_64.tar.gz` | macOS Intel |
+| `gantry-cli-linux-x86_64.tar.gz` | Linux x86-64 |
+| `gantry-cli-linux-aarch64.tar.gz` | Linux arm64 |
+| `gantry-cli-windows-x86_64.zip` | Windows x86-64 |
+| `gantry-cli-windows-aarch64.zip` | Windows arm64 |
 
 Each asset is accompanied by a `.sha256` checksum file.
 
@@ -113,13 +117,13 @@ Each asset is accompanied by a `.sha256` checksum file.
 git clone https://github.com/cascalheira/codemagic-cli.git
 cd codemagic-cli
 cargo build --release
-# binary → target/release/codemagic-cli
+# binary → target/release/gantry-cli
 ```
 
 Copy the binary somewhere on your `$PATH`:
 
 ```bash
-cp target/release/codemagic-cli /usr/local/bin/
+cp target/release/gantry-cli /usr/local/bin/
 ```
 
 ---
@@ -134,12 +138,12 @@ In the Codemagic web UI:
 ### 2. First launch
 
 ```bash
-codemagic-cli
+gantry-cli
 ```
 
 On first run the onboarding screen appears and asks for your API token.  
 The token is validated against the API and saved to
-`~/.config/codemagic-cli/config.toml`.
+`~/.config/gantry/config.toml`.
 
 Subsequent launches jump straight to the builds list.
 
@@ -185,7 +189,7 @@ Shows a table of all artefacts (name, type, size) for the selected build.
 Selecting one and pressing `Enter` downloads it directly to:
 
 ```
-~/Codemagic/{App Name}/{Workflow Name}/{Build Number}/{filename}
+~/Gantry/{App Name}/{Workflow Name}/{Build Number}/{filename}
 ```
 
 An `.aab` file is always accompanied by a **Convert → APK** row at the bottom of the list (only shown when an AAB is present). Selecting it runs the bundletool conversion and saves the result at the same path as the other artefacts.
@@ -316,7 +320,7 @@ Non-interactive operations for scripts and CI pipelines.
 Finds the latest finished build for a workflow that contains an AAB artefact, converts it to a universal APK with [bundletool](https://developer.android.com/tools/bundletool), and saves it locally.
 
 ```bash
-codemagic-cli download apk \
+gantry-cli download apk \
   --app-id      5c9c064185dd2310123b8e96 \
   --workflow-id release
 ```
@@ -333,13 +337,13 @@ Generating download link…
 Downloading AAB (32.1 MB)…
 Converting AAB → APK (bundletool)…
 Extracting universal APK…
-✓  APK saved to /Users/you/Codemagic/My Flutter App/Release Workflow/last/build.apk
+✓  APK saved to /Users/you/Gantry/My Flutter App/Release Workflow/last/build.apk
 ```
 
 **Output path:**
 
 ```
-~/Codemagic/{App Name}/{Workflow Name}/last/build.apk
+~/Gantry/{App Name}/{Workflow Name}/last/build.apk
 ```
 
 `last/` is always overwritten, giving you a stable path to the freshest APK.
@@ -356,7 +360,7 @@ The command works without bundletool pre-installed:
 
 1. Checks for `bundletool` binary on `PATH` — uses it if found
 2. Checks for `java` on `PATH` — required for the JAR fallback
-3. Checks for a cached JAR at `~/.config/codemagic-cli/bundletool.jar`
+3. Checks for a cached JAR at `~/.config/gantry/bundletool.jar`
 4. Downloads the latest JAR from [GitHub Releases](https://github.com/google/bundletool/releases) and caches it (one-time download, ~80 MB)
 
 The cached JAR is shared between the TUI and the CLI, so it is only downloaded once regardless of which mode first triggers it.
@@ -373,7 +377,7 @@ brew install bundletool
 All downloaded files follow the same directory structure:
 
 ```
-~/Codemagic/
+~/Gantry/
   {App Name}/
     {Workflow Name}/
       {Build Number}/          ← numbered builds from TUI
@@ -392,8 +396,8 @@ Characters illegal in directory names (`/ \ : * ? " < > |`) are replaced with `_
 
 | File | Purpose |
 |------|---------|
-| `~/.config/codemagic-cli/config.toml` | Stored API token |
-| `~/.config/codemagic-cli/bundletool.jar` | Cached bundletool JAR |
+| `~/.config/gantry/config.toml` | Stored API token |
+| `~/.config/gantry/bundletool.jar` | Cached bundletool JAR |
 
 **`config.toml` format:**
 

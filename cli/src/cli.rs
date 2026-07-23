@@ -10,17 +10,17 @@ use crate::models::Artefact;
 
 // ─── Public entry point ───────────────────────────────────────────────────────
 
-/// `codemagic-cli download apk --app-id X --workflow-id Y`
+/// `gantry-cli download apk --app-id X --workflow-id Y`
 ///
 /// Finds the latest finished build for the given app / workflow that contains
 /// an AAB artefact, converts it to a universal APK with bundletool, and writes
-/// the result to `~/Codemagic/{app}/{workflow}/last/build.apk`.
+/// the result to `~/Gantry/{app}/{workflow}/last/build.apk`.
 pub async fn run_download_apk(app_id: &str, workflow_id: &str) -> Result<()> {
     // 1. Load saved API token.
     let cfg = config::load_config()?.ok_or_else(|| {
         anyhow!(
             "No saved API token found.\n\
-             Run `codemagic-cli` (no arguments) to open the TUI and complete setup."
+             Run `gantry-cli` (no arguments) to open the TUI and complete setup."
         )
     })?;
     let client = ApiClient::new(cfg.api_token);
@@ -124,19 +124,19 @@ async fn find_latest_aab(
 // ─── Download + bundletool conversion ────────────────────────────────────────
 
 /// Converts the AAB to a universal APK at `dest`, delegating to the shared
-/// `codemagic-core` implementation and echoing progress to stderr.
+/// `gantry-core` implementation and echoing progress to stderr.
 async fn download_and_convert(client: &ApiClient, aab: &Artefact, dest: &Path) -> Result<()> {
-    codemagic_core::bundletool::convert_aab_to_apk(client, aab, dest, |msg| eprintln!("{msg}"))
+    gantry_core::bundletool::convert_aab_to_apk(client, aab, dest, |msg| eprintln!("{msg}"))
         .await?;
     Ok(())
 }
 
 // ─── Path helpers ─────────────────────────────────────────────────────────────
 
-/// `~/Codemagic/{app}/{workflow}/last/build.apk`
+/// `~/Gantry/{app}/{workflow}/last/build.apk`
 fn last_apk_path(app_name: &str, workflow_name: &str) -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    home.join("Codemagic")
+    home.join("Gantry")
         .join(sanitize(app_name))
         .join(sanitize(workflow_name))
         .join("last")

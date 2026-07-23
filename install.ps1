@@ -1,8 +1,8 @@
-# install.ps1 — installs the latest codemagic-cli release on Windows.
+# install.ps1 — installs the latest gantry-cli release on Windows.
 #
 # Usage (run in PowerShell as Administrator, or with a writable InstallDir):
 #
-#   # Latest release, default install directory (%LOCALAPPDATA%\codemagic-cli):
+#   # Latest release, default install directory (%LOCALAPPDATA%\gantry):
 #   irm https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.ps1 | iex
 #
 #   # Specify a custom install directory:
@@ -12,7 +12,7 @@
 #   $env:VERSION = "v1.3.0"; irm https://raw.githubusercontent.com/cascalheira/codemagic-cli/main/install.ps1 | iex
 #
 # Environment variables (all optional):
-#   INSTALL_DIR  — directory to install the binary (default: %LOCALAPPDATA%\codemagic-cli)
+#   INSTALL_DIR  — directory to install the binary (default: %LOCALAPPDATA%\gantry)
 #   VERSION      — specific release tag to install  (default: latest)
 
 [CmdletBinding()]
@@ -21,13 +21,13 @@ param()
 $ErrorActionPreference = "Stop"
 
 $Repo       = "cascalheira/codemagic-cli"
-$BinaryName = "codemagic-cli.exe"
+$BinaryName = "gantry-cli.exe"
 
 # ── Resolve install directory ────────────────────────────────────────────────
 $InstallDir = if ($env:INSTALL_DIR) {
     $env:INSTALL_DIR
 } else {
-    Join-Path $env:LOCALAPPDATA "codemagic-cli"
+    Join-Path $env:LOCALAPPDATA "gantry"
 }
 
 # ── Detect architecture ───────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ $ArchName = switch ($Arch) {
     }
 }
 
-$AssetName = "codemagic-cli-windows-${ArchName}.zip"
+$AssetName = "gantry-cli-windows-${ArchName}.zip"
 
 # ── Resolve version ───────────────────────────────────────────────────────────
 $Version = $env:VERSION
@@ -53,7 +53,7 @@ if (-not $Version) {
         $Json = Invoke-WebRequest `
             -Uri $ApiUrl `
             -UseBasicParsing `
-            -Headers @{ "User-Agent" = "codemagic-cli-installer"; "Accept" = "application/json" } `
+            -Headers @{ "User-Agent" = "gantry-cli-installer"; "Accept" = "application/json" } `
             | Select-Object -ExpandProperty Content
         $Version = ($Json | ConvertFrom-Json).tag_name
     } catch {
@@ -69,14 +69,14 @@ if (-not $Version) {
     }
 }
 
-Write-Host "Installing codemagic-cli $Version for windows/$ArchName..."
+Write-Host "Installing gantry-cli $Version for windows/$ArchName..."
 
 $BaseUrl     = "https://github.com/$Repo/releases/download/$Version"
 $DownloadUrl = "$BaseUrl/$AssetName"
 $ChecksumUrl = "$DownloadUrl.sha256"
 
 # ── Download to a temp directory ──────────────────────────────────────────────
-$TmpDir = Join-Path $env:TEMP "codemagic-cli-install-$(Get-Random)"
+$TmpDir = Join-Path $env:TEMP "gantry-cli-install-$(Get-Random)"
 New-Item -ItemType Directory -Path $TmpDir | Out-Null
 
 try {
@@ -115,7 +115,7 @@ try {
     Move-Item -Path (Join-Path $TmpDir $BinaryName) -Destination $Destination -Force
 
     Write-Host ""
-    Write-Host "✓  codemagic-cli $Version installed to $Destination"
+    Write-Host "✓  gantry-cli $Version installed to $Destination"
     Write-Host ""
 
     # ── Add to PATH (user scope) if not already present ────────────────────────
@@ -129,7 +129,7 @@ try {
         Write-Host "Added $InstallDir to your user PATH."
         Write-Host "Restart your terminal (or open a new one) for the change to take effect."
     } else {
-        Write-Host "Run 'codemagic-cli' to get started."
+        Write-Host "Run 'gantry-cli' to get started."
     }
 
 } finally {

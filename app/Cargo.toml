@@ -1,5 +1,5 @@
 [package]
-name = "codemagic-app"
+name = "gantry"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,7 +7,7 @@ repository.workspace = true
 description = "Cross-platform (desktop + mobile) Codemagic.io client built with Dioxus."
 
 [dependencies]
-codemagic-core.workspace = true
+gantry-core.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 rfd = "0.15"

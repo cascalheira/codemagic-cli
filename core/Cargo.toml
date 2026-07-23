@@ -1,5 +1,5 @@
 [package]
-name = "codemagic-core"
+name = "gantry-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

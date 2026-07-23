@@ -15,8 +15,8 @@ use tokio::sync::mpsc;
 
 // Re-export the shared engine at the crate root so existing `crate::api`,
 // `crate::config`, and `crate::models` paths across the `app`/`ui` modules keep
-// resolving after the move into `codemagic-core`.
-pub use codemagic_core::{api, config, models};
+// resolving after the move into `gantry-core`.
+pub use gantry_core::{api, config, models};
 
 mod app;
 mod cli;
@@ -28,8 +28,8 @@ use app::{App, AppMessage};
 
 #[derive(Parser)]
 #[command(
-    name = "codemagic-cli",
-    about = "Codemagic.io TUI client and CI/CD automation tool",
+    name = "gantry-cli",
+    about = "Gantry — a Codemagic.io TUI client and CI/CD automation tool",
     long_about = "Run without arguments to open the interactive TUI.\n\
                   Pass a subcommand to run a non-interactive operation."
 )]
@@ -53,7 +53,7 @@ enum DownloadSub {
     ///
     /// Searches builds newest-first until it finds one with an AAB artefact,
     /// converts it via bundletool, and writes the result to
-    /// ~/Codemagic/{app}/{workflow}/last/build.apk
+    /// ~/Gantry/{app}/{workflow}/last/build.apk
     Apk {
         /// Codemagic application ID (see the App IDs dialog in the TUI: press i)
         #[arg(long)]

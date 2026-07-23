@@ -1,6 +1,6 @@
 //! "New build" wizard: pick app → workflow → branch, then trigger a build.
 
-use codemagic_core::models::Application;
+use gantry_core::models::Application;
 use dioxus::prelude::*;
 
 use crate::state::AppState;

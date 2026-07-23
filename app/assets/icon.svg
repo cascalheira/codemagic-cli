@@ -1,6 +1,6 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Squircle background: Codemagic teal -> green, top-down -->
+    <!-- Squircle background: teal -> green, top-down -->
     <linearGradient id="bg" x1="512" y1="100" x2="512" y2="924" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#2FD8AC"/>
       <stop offset="0.55" stop-color="#12B983"/>

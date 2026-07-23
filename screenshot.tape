@@ -1,4 +1,4 @@
-# VHS tape — capture a screenshot of codemagic-cli TUI
+# VHS tape — capture a screenshot of the gantry-cli TUI
 Output screenshots/screenshot.png
 
 Set Shell "bash"
@@ -9,7 +9,7 @@ Set Height 700
 Set Padding 20
 
 # Launch the TUI — no config exists so onboarding screen appears
-Type "CODEMAGIC_API_TOKEN='' ./target/release/codemagic-cli"
+Type "./target/release/gantry-cli"
 Sleep 200ms
 Enter
 Sleep 2s
