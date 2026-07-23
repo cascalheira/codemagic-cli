@@ -18,10 +18,7 @@
 
 use dioxus::prelude::*;
 
-/// Must match `with_min_inner_size` in `main`, or dragging past the minimum
-/// would keep moving the window's origin while its size stayed put.
-const MIN_W: f64 = 720.0;
-const MIN_H: f64 = 480.0;
+use crate::{MIN_H, MIN_W};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Edge {
