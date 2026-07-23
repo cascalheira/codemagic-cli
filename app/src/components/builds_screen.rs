@@ -7,6 +7,7 @@ use codemagic_core::models::Build;
 use dioxus::prelude::*;
 
 use super::build_detail::BuildDetail;
+use super::icons::{GearIcon, PlusIcon, RefreshIcon};
 use super::new_build::NewBuildModal;
 use super::settings::SettingsModal;
 use crate::state::AppState;
@@ -19,10 +20,18 @@ pub fn BuildsScreen() -> Element {
     let mut selected = use_signal(|| Option::<String>::None);
     let mut new_build_open = use_signal(|| false);
     let mut settings_open = use_signal(|| false);
+    let mut refreshing = use_signal(|| false);
 
     let mut builds = use_resource(move || {
         let client = state.client();
         async move { client.get_builds(0, None, None).await }
+    });
+
+    // Clear the spinner once a (re)fetch resolves.
+    use_effect(move || {
+        if builds.read().is_some() {
+            refreshing.set(false);
+        }
     });
 
     // Auto-refresh the list on the configured interval.
@@ -31,19 +40,37 @@ pub fn BuildsScreen() -> Element {
         loop {
             let secs = *refresh_secs.read();
             tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+            refreshing.set(true);
             builds.restart();
         }
     });
 
+    let spinning = refreshing() || builds.read().is_none();
+
     rsx! {
         div { class: "layout",
             aside { class: "sidebar",
-                header { class: "topbar",
+                header { class: "topbar", onmousedown: move |_| crate::start_drag(),
                     h1 { "Builds" }
-                    div { class: "actions",
-                        button { class: "primary small", onclick: move |_| new_build_open.set(true), "New build" }
-                        button { class: "ghost small", onclick: move |_| builds.restart(), "Refresh" }
-                        button { class: "ghost small", onclick: move |_| settings_open.set(true), "Settings" }
+                    div { class: "actions", onmousedown: move |e| e.stop_propagation(),
+                        button {
+                            class: "primary small",
+                            onclick: move |_| new_build_open.set(true),
+                            PlusIcon {}
+                            span { "New build" }
+                        }
+                        button {
+                            class: if spinning { "ghost icon-btn spinning" } else { "ghost icon-btn" },
+                            title: "Refresh",
+                            onclick: move |_| { refreshing.set(true); builds.restart(); },
+                            RefreshIcon {}
+                        }
+                        button {
+                            class: "ghost icon-btn",
+                            title: "Settings",
+                            onclick: move |_| settings_open.set(true),
+                            GearIcon {}
+                        }
                     }
                 }
                 div { class: "sidebar-list",

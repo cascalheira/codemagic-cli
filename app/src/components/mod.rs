@@ -1,5 +1,6 @@
 mod build_detail;
 mod builds_screen;
+mod icons;
 mod new_build;
 mod onboarding;
 mod settings;

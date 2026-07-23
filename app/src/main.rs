@@ -19,19 +19,24 @@ fn main() {
     // always-on-top for dev convenience) and give the window a real title.
     #[cfg(feature = "desktop")]
     {
-        use dioxus::desktop::{Config, WindowBuilder};
+        use dioxus::desktop::{Config, LogicalSize, WindowBuilder};
         #[allow(unused_mut)]
         let mut window = WindowBuilder::new()
             .with_title("Codemagic")
-            .with_always_on_top(false);
-        // Let the frosted-glass content run under the traffic lights (macOS).
+            .with_always_on_top(false)
+            .with_inner_size(LogicalSize::new(1180.0, 760.0))
+            .with_min_inner_size(LogicalSize::new(720.0, 480.0));
+        // Let the frosted-glass content run under the traffic lights, and make
+        // the window transparent so the desktop shows through the vibrancy
+        // material we apply at runtime (macOS).
         #[cfg(target_os = "macos")]
         {
             use dioxus::desktop::tao::platform::macos::WindowBuilderExtMacOS;
             window = window
                 .with_titlebar_transparent(true)
                 .with_fullsize_content_view(true)
-                .with_title_hidden(true);
+                .with_title_hidden(true)
+                .with_transparent(true);
         }
         dioxus::LaunchBuilder::desktop()
             .with_cfg(Config::new().with_window(window))
@@ -49,9 +54,33 @@ fn App() -> Element {
     use_context_provider(AppState::new);
     let state = use_context::<AppState>();
 
+    // Apply the native macOS vibrancy material behind the (transparent)
+    // webview, so the desktop blurs through the frosted UI. When it succeeds we
+    // drop the CSS fallback gradient via the `vibrant` class.
+    #[allow(unused_mut)]
+    let mut vibrant = use_signal(|| false);
+    #[cfg(all(feature = "desktop", target_os = "macos"))]
+    use_effect(move || {
+        use dioxus::desktop::window;
+        use window_vibrancy::{NSVisualEffectMaterial, NSVisualEffectState, apply_vibrancy};
+        let ctx = window();
+        if apply_vibrancy(
+            &*ctx.window,
+            NSVisualEffectMaterial::Sidebar,
+            Some(NSVisualEffectState::Active),
+            None,
+        )
+        .is_ok()
+        {
+            vibrant.set(true);
+        }
+    });
+
     rsx! {
         document::Stylesheet { href: MAIN_CSS }
-        main { class: "app",
+        main { class: if vibrant() { "app vibrant" } else { "app" },
+            // Full-width strip under the traffic lights that drags the window.
+            div { class: "drag-strip", onmousedown: move |_| start_drag() }
             if state.has_token() {
                 BuildsScreen {}
             } else {
@@ -59,4 +88,10 @@ fn App() -> Element {
             }
         }
     }
+}
+
+/// Starts a native window drag (used by the titlebar drag strip / toolbar).
+pub fn start_drag() {
+    #[cfg(feature = "desktop")]
+    dioxus::desktop::window().drag();
 }

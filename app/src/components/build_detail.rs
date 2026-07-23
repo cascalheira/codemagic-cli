@@ -8,6 +8,7 @@ use codemagic_core::{ApiClient, models::Artefact};
 use dioxus::prelude::*;
 
 use super::builds_screen::status_class;
+use super::icons::StopIcon;
 use crate::state::AppState;
 
 /// State of the log viewer overlay.
@@ -105,7 +106,8 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                                         }
                                     });
                                 },
-                                "Stop build"
+                                StopIcon {}
+                                span { "Stop build" }
                             }
                         }
                     }
