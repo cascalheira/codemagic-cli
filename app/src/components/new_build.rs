@@ -1,7 +1,7 @@
 //! "New build" wizard: pick app → workflow → branch, then trigger a build.
 
-use gantry_core::models::Application;
 use dioxus::prelude::*;
+use gantry_core::models::Application;
 
 use crate::state::AppState;
 

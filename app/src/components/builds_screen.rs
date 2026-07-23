@@ -4,8 +4,8 @@
 use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Local, Utc};
-use gantry_core::{PAGE_SIZE, models::Build};
 use dioxus::prelude::*;
+use gantry_core::{PAGE_SIZE, models::Build};
 
 use super::app_info::AppInfoModal;
 use super::build_detail::BuildDetail;
@@ -107,8 +107,11 @@ pub fn BuildsScreen() -> Element {
 
         // `peek` reads without subscribing. Using `read` here would make this
         // effect depend on signals it also writes, retriggering itself forever.
-        let mut seen: HashSet<String> =
-            known_workflows.peek().iter().map(|(id, _)| id.clone()).collect();
+        let mut seen: HashSet<String> = known_workflows
+            .peek()
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect();
         let fresh: Vec<(String, String)> = page
             .builds
             .iter()
@@ -454,7 +457,10 @@ fn BuildRow(data: Build, app_name: Option<String>, selected: Signal<Option<Strin
     let is_selected = selected.read().as_deref() == Some(id.as_str());
 
     let app = app_name.unwrap_or_else(|| "Unknown app".to_string());
-    let number = build.display_build_number().map(|n| format!(" · #{n}")).unwrap_or_default();
+    let number = build
+        .display_build_number()
+        .map(|n| format!(" · #{n}"))
+        .unwrap_or_default();
     let when = build.display_time().map(relative_time).unwrap_or_default();
 
     rsx! {
@@ -581,10 +587,10 @@ mod tests {
     #[test]
     fn notifies_only_on_running_to_terminal() {
         let previous = map(&[
-            ("a", "building"),  // -> finished: notify
-            ("b", "queued"),    // -> failed:   notify
-            ("c", "building"),  // -> testing:  still running, no
-            ("d", "finished"),  // -> finished: unchanged, no
+            ("a", "building"), // -> finished: notify
+            ("b", "queued"),   // -> failed:   notify
+            ("c", "building"), // -> testing:  still running, no
+            ("d", "finished"), // -> finished: unchanged, no
         ]);
         let current = pairs(&[
             ("a", "finished"),

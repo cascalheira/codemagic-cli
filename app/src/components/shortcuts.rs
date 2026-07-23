@@ -116,7 +116,11 @@ pub fn step(order: &[String], current: Option<&str>, delta: isize) -> Option<Str
 #[component]
 pub fn HelpModal(open: Signal<bool>) -> Element {
     // Cmd reads as the native modifier on macOS, Ctrl everywhere else.
-    let modifier = if cfg!(target_os = "macos") { "⌘" } else { "Ctrl" };
+    let modifier = if cfg!(target_os = "macos") {
+        "⌘"
+    } else {
+        "Ctrl"
+    };
     let rows: Vec<(String, &str)> = vec![
         ("↑ ↓  ·  j k".to_string(), "Move through builds"),
         (format!("r  ·  {modifier}R"), "Refresh"),

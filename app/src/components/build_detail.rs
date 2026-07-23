@@ -5,11 +5,11 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
+use dioxus::prelude::*;
 use gantry_core::{
     ApiClient,
     models::{Artefact, BuildDetailResponse},
 };
-use dioxus::prelude::*;
 
 /// How often to re-poll a build that hasn't reached a terminal state. Polling
 /// stops on its own once the build finishes.
@@ -160,12 +160,13 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
         div { class: "detail-body",
             // ── Center: build info + step logs ──────────────────────
             div { class: "detail-center",
-                div { class: "detail-head",
+                div { class: "detail-head", onmousedown: move |_| crate::start_drag(),
                     span { class: "status {status_class(&build.status)}", "{build.status}" }
                     div { class: "detail-head-main",
                         h2 { "{app_name}" }
                         p { class: "muted", "{build.workflow_display()}  ·  {build.git_ref()}  {number}" }
                     }
+                    div { class: "detail-actions", onmousedown: move |e| e.stop_propagation(),
                     {
                         let url = gantry_core::web::build_url(&build.app_id, &build.id);
                         rsx! {
@@ -240,6 +241,7 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
                             }
                         }
                     }
+                    }
                 }
                 if let Some(msg) = action_msg.as_ref() {
                     p { class: "dl-status", "{msg}" }
@@ -283,7 +285,7 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
 
             // ── Right rail: artifacts ───────────────────────────────
             aside { class: "artifacts-rail",
-                div { class: "rail-head",
+                div { class: "rail-head", onmousedown: move |_| crate::start_drag(),
                     h3 { "Artifacts" }
                     if has_downloads {
                         {
@@ -292,6 +294,8 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
                             rsx! {
                                 button {
                                     class: "ghost small",
+                                    // Otherwise the click starts a window drag.
+                                    onmousedown: move |e| e.stop_propagation(),
                                     onclick: move |_| {
                                         let arts = arts.clone();
                                         let client = client.clone();
@@ -527,14 +531,20 @@ struct LogView {
 
 fn filter_log(text: &str, query: &str) -> LogView {
     if query.trim().is_empty() {
-        return LogView { text: text.to_string(), matches: 0 };
+        return LogView {
+            text: text.to_string(),
+            matches: 0,
+        };
     }
     let needle = query.to_lowercase();
     let kept: Vec<&str> = text
         .lines()
         .filter(|l| l.to_lowercase().contains(&needle))
         .collect();
-    LogView { matches: kept.len(), text: kept.join("\n") }
+    LogView {
+        matches: kept.len(),
+        text: kept.join("\n"),
+    }
 }
 
 // ─── Artifact card ───────────────────────────────────────────────────────────

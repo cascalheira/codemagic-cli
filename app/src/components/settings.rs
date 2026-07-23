@@ -1,7 +1,7 @@
 //! Settings modal: API token, auto-refresh interval, and sign out.
 
-use gantry_core::ApiClient;
 use dioxus::prelude::*;
+use gantry_core::ApiClient;
 
 use crate::state::{AppState, MIN_REFRESH_SECS};
 

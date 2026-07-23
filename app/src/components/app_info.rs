@@ -3,8 +3,8 @@
 //! scripts refer to, and the web UI buries them, so the point of this sheet is
 //! to find one and copy it.
 
-use gantry_core::models::Application;
 use dioxus::prelude::*;
+use gantry_core::models::Application;
 
 use super::icons::CopyIcon;
 use crate::state::AppState;
@@ -86,7 +86,11 @@ pub fn AppInfoModal(open: Signal<bool>) -> Element {
 }
 
 #[component]
-fn AppInfoCard(app: Application, copied_id: Option<String>, on_copy: EventHandler<String>) -> Element {
+fn AppInfoCard(
+    app: Application,
+    copied_id: Option<String>,
+    on_copy: EventHandler<String>,
+) -> Element {
     // Stable ordering; the API returns workflows in a HashMap.
     let mut workflows: Vec<(String, String)> = app
         .workflows
@@ -179,7 +183,12 @@ mod tests {
             workflows: workflows
                 .iter()
                 .map(|(wid, wname)| {
-                    (wid.to_string(), WorkflowInfo { name: wname.to_string() })
+                    (
+                        wid.to_string(),
+                        WorkflowInfo {
+                            name: wname.to_string(),
+                        },
+                    )
                 })
                 .collect::<HashMap<_, _>>(),
             branches: Vec::new(),

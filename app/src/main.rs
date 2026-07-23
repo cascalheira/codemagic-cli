@@ -83,12 +83,13 @@ fn App() -> Element {
     rsx! {
         document::Stylesheet { href: MAIN_CSS }
         main { class: if vibrant() { "app vibrant" } else { "app" },
-            // Full-width strip under the traffic lights that drags the window.
-            div { class: "drag-strip", onmousedown: move |_| start_drag() }
             ResizeHandles {}
             if state.has_token() {
                 BuildsScreen {}
             } else {
+                // Onboarding has no toolbar to drag from, so it keeps the
+                // full-width strip under the traffic lights.
+                div { class: "drag-strip", onmousedown: move |_| start_drag() }
                 Onboarding {}
             }
         }

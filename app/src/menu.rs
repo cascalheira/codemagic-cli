@@ -66,8 +66,13 @@ const APP_INFO_KEY: &str = "CmdOrCtrl+I";
 const SHORTCUTS_KEY: &str = "CmdOrCtrl+/";
 #[cfg_attr(not(test), allow(dead_code))]
 const ALL_KEYS: &[&str] = &[
-    SETTINGS_KEY, NEW_BUILD_KEY, REFRESH_KEY, FILTER_KEY,
-    OPEN_BUILD_KEY, APP_INFO_KEY, SHORTCUTS_KEY,
+    SETTINGS_KEY,
+    NEW_BUILD_KEY,
+    REFRESH_KEY,
+    FILTER_KEY,
+    OPEN_BUILD_KEY,
+    APP_INFO_KEY,
+    SHORTCUTS_KEY,
 ];
 
 /// A menu item with an id and an optional accelerator.
@@ -75,7 +80,12 @@ const ALL_KEYS: &[&str] = &[
 /// Accelerators are parsed rather than built by hand; an unparseable one is
 /// dropped so a typo costs the shortcut, not the whole menu bar.
 fn item(id: &str, label: &str, accelerator: Option<&str>) -> MenuItem {
-    MenuItem::with_id(id, label, true, accelerator.and_then(|a| a.parse::<Accelerator>().ok()))
+    MenuItem::with_id(
+        id,
+        label,
+        true,
+        accelerator.and_then(|a| a.parse::<Accelerator>().ok()),
+    )
 }
 
 fn about_metadata() -> AboutMetadata {
@@ -151,10 +161,18 @@ pub fn build() -> Menu {
         &item("gantry-refresh", "Refresh", Some(REFRESH_KEY)),
         &item("gantry-filter", "Filter by Workflow", Some(FILTER_KEY)),
         &PredefinedMenuItem::separator(),
-        &item("gantry-open-build", "Open Build in Codemagic", Some(OPEN_BUILD_KEY)),
+        &item(
+            "gantry-open-build",
+            "Open Build in Codemagic",
+            Some(OPEN_BUILD_KEY),
+        ),
         // No "&": muda reads it as a Windows mnemonic marker and strips it,
         // leaving a double space in the label.
-        &item("gantry-app-info", "App and Workflow IDs", Some(APP_INFO_KEY)),
+        &item(
+            "gantry-app-info",
+            "App and Workflow IDs",
+            Some(APP_INFO_KEY),
+        ),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::fullscreen(None),
     ]);
@@ -174,7 +192,11 @@ pub fn build() -> Menu {
 
     let help_menu = Submenu::new("Help", true);
     let _ = help_menu.append_items(&[
-        &item("gantry-shortcuts", "Keyboard Shortcuts", Some(SHORTCUTS_KEY)),
+        &item(
+            "gantry-shortcuts",
+            "Keyboard Shortcuts",
+            Some(SHORTCUTS_KEY),
+        ),
         &PredefinedMenuItem::separator(),
         &item("gantry-repository", "Gantry on GitHub", None),
         &item("gantry-issues", "Report an Issue", None),

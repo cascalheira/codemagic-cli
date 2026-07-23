@@ -1,7 +1,7 @@
 //! First-run screen: collect and validate a Codemagic API token.
 
-use gantry_core::ApiClient;
 use dioxus::prelude::*;
+use gantry_core::ApiClient;
 
 use crate::state::AppState;
 
@@ -32,7 +32,9 @@ pub fn Onboarding() -> Element {
                     state.save_token(candidate);
                 }
                 Ok(false) => {
-                    status.set(Status::Error("That token was rejected by Codemagic.".into()));
+                    status.set(Status::Error(
+                        "That token was rejected by Codemagic.".into(),
+                    ));
                 }
                 Err(e) => {
                     status.set(Status::Error(format!("Network error: {e}")));

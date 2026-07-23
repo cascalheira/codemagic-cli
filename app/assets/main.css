@@ -88,7 +88,9 @@ html, body {
 .app { height: 100vh; display: flex; flex-direction: column; background: var(--content-bg); }
 .app.vibrant { background: transparent; }
 
-/* Window-drag strip beneath the traffic lights. */
+/* Drag strip for the onboarding screen, which has no toolbar of its own.
+   The builds screen drags from its own headers instead, so nothing covers
+   the top of the detail column. */
 .drag-strip { position: fixed; top: 0; left: 0; right: 0; height: var(--titlebar); z-index: 30; }
 
 ::-webkit-scrollbar { width: 11px; height: 11px; }
@@ -106,6 +108,13 @@ button {
   cursor: default;
   border-radius: var(--radius);
   border: 1px solid transparent;
+  /* Icon-plus-label buttons only line up if the button itself is a flex
+     container; `.ghost` used to be an inline-block, which left the icon
+     hanging at the left edge with the label centred beside it. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.34rem;
   transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
 button:disabled { opacity: 0.42; }
@@ -120,10 +129,6 @@ button:active:not(:disabled) { filter: brightness(0.96); }
 .ghost:hover:not(:disabled) { background: var(--btn-bg-hover); }
 
 .primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.34rem;
   padding: 3px 13px;
   color: #fff;
   border: 1px solid transparent;
@@ -132,9 +137,6 @@ button:active:not(:disabled) { filter: brightness(0.96); }
 .primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 .danger {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.34rem;
   padding: 3px 12px;
   color: var(--danger);
   background: var(--btn-bg);
@@ -217,7 +219,8 @@ input:focus, select:focus, .token-input:focus {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: calc(var(--titlebar) + 4px) 0.7rem 0.5rem;
+  /* Left inset clears the traffic lights, which share this row. */
+  padding: 3px 0.7rem 0.5rem 78px;
 }
 .topbar h1 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .actions { display: flex; gap: 0.28rem; align-items: center; }
@@ -364,10 +367,11 @@ input:focus, select:focus, .token-input:focus {
   min-width: 0;
   overflow-y: auto;
   background: var(--content-bg);
-  padding: calc(var(--titlebar) + 4px) clamp(1.1rem, 2.2vw, 2rem) 2.5rem;
+  padding: 0.7rem clamp(1.1rem, 2.2vw, 2rem) 2.5rem;
 }
-.detail-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1.1rem; }
+.detail-head { display: flex; align-items: center; gap: 0.7rem; min-height: var(--titlebar); margin-bottom: 1.1rem; }
 .detail-head-main { flex: 1; min-width: 0; }
+.detail-actions { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 .detail-head h2 { margin: 0 0 0.1rem; font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
 .detail-head p { margin: 0; font-size: 12px; }
 
@@ -437,9 +441,9 @@ input:focus, select:focus, .token-input:focus {
   background: var(--sidebar-bg);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   backdrop-filter: blur(20px) saturate(150%);
-  padding: calc(var(--titlebar) + 4px) 0.85rem 1.5rem;
+  padding: 0.7rem 0.85rem 1.5rem;
 }
-.rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
+.rail-head { display: flex; align-items: center; justify-content: space-between; min-height: var(--titlebar); margin-bottom: 0.7rem; }
 .rail-head h3 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
 .rail-empty { font-size: 12px; }
 .artifact-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }

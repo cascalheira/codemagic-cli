@@ -9,5 +9,5 @@ mod settings;
 pub(crate) mod shortcuts;
 
 pub use builds_screen::BuildsScreen;
-pub use resize::ResizeHandles;
 pub use onboarding::Onboarding;
+pub use resize::ResizeHandles;

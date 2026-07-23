@@ -1,7 +1,7 @@
 //! Shared application state, provided via Dioxus context.
 
-use gantry_core::{ApiClient, config};
 use dioxus::prelude::*;
+use gantry_core::{ApiClient, config};
 
 /// Default auto-refresh interval (seconds) when none is configured.
 pub const DEFAULT_REFRESH_SECS: u64 = 30;
