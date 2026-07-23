@@ -62,8 +62,24 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y pkg-config libssl-dev
 
+      # The GUI app (`codemagic-app`) defaults to the `desktop` feature, which
+      # needs the GTK/webkit stack — not installed on the Linux runners, and we
+      # don't ship a Linux desktop build. So on Linux we check only the CLI +
+      # core; macOS/Windows check the whole workspace (they build the app fine).
       - name: Build (debug)
-        run: cargo build --locked --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            cargo build --locked --target ${{ matrix.target }} -p codemagic-cli -p codemagic-core
+          else
+            cargo build --locked --target ${{ matrix.target }}
+          fi
 
       - name: Clippy
-        run: cargo clippy --locked --target ${{ matrix.target }} -- -D warnings
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            cargo clippy --locked --target ${{ matrix.target }} -p codemagic-cli -p codemagic-core -- -D warnings
+          else
+            cargo clippy --locked --target ${{ matrix.target }} -- -D warnings
+          fi
