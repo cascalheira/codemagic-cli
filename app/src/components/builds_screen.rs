@@ -137,32 +137,23 @@ fn BuildRow(data: Build, app_name: Option<String>, selected: Signal<Option<Strin
     let is_selected = selected.read().as_deref() == Some(id.as_str());
 
     let app = app_name.unwrap_or_else(|| "Unknown app".to_string());
-    let number = build
-        .display_build_number()
-        .map(|n| format!("#{n}"))
-        .unwrap_or_default();
+    let number = build.display_build_number().map(|n| format!(" · #{n}")).unwrap_or_default();
     let when = build
         .display_time()
-        .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
-        .unwrap_or_else(|| "-".to_string());
+        .map(|t| t.format("%b %d").to_string())
+        .unwrap_or_default();
 
     rsx! {
         li {
             class: if is_selected { "build-row selected" } else { "build-row" },
             onclick: move |_| selected.set(Some(id.clone())),
-            span { class: "status {status_class(&build.status)}", "{build.status}" }
+            span { class: "status-dot {status_class(&build.status)}" }
             div { class: "build-main",
-                div { class: "build-title",
-                    span { class: "app-name", "{app}" }
-                    span { class: "workflow", "{build.workflow_display()}" }
+                div { class: "bl-top",
+                    span { class: "bl-title", "{build.workflow_display()}" }
+                    span { class: "bl-time", "{when}" }
                 }
-                div { class: "build-sub muted",
-                    span { "{build.git_ref()}" }
-                    if !number.is_empty() {
-                        span { "· {number}" }
-                    }
-                    span { "· {when}" }
-                }
+                div { class: "bl-sub", "{app} · {build.git_ref()}{number}" }
             }
         }
     }

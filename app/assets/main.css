@@ -74,6 +74,8 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   color: var(--text);
   background: transparent;
   cursor: default;
@@ -81,6 +83,9 @@ html, body {
   font-size: var(--font);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Keep elastic scrolling inside panels, never the whole window. */
+.sidebar-list, .detail-center, .artifacts-rail, .step-log, .log, .form-body { overscroll-behavior: contain; }
 
 .app { height: 100vh; display: flex; flex-direction: column; background: var(--content-bg); }
 .app.vibrant { background: transparent; }
@@ -223,21 +228,38 @@ input:focus, select:focus, .token-input:focus {
 .actions { display: flex; gap: 0.28rem; align-items: center; }
 
 /* ── Build list (sidebar source list) ───────────────────── */
-.build-list { list-style: none; margin: 0; padding: 0.25rem 0.4rem; }
+.build-list { list-style: none; margin: 0; padding: 0.3rem 0.45rem; }
 .build-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.55rem;
-  padding: 0.42rem 0.5rem;
+  padding: 0.45rem 0.55rem;
   border-radius: var(--radius);
 }
 .build-row:hover { background: var(--hover); }
 .build-row.selected { background: var(--sel); }
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 0.28rem;
+}
+.status-dot.ok { background: var(--ok); }
+.status-dot.fail { background: var(--danger); }
+.status-dot.run { background: var(--run); box-shadow: 0 0 0 0 color-mix(in srgb, var(--run) 60%, transparent); animation: dot-pulse 1.6s ease-out infinite; }
+.status-dot.cancel, .status-dot.neutral { background: var(--faint); }
+@keyframes dot-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--run) 55%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 5px transparent; }
+}
+
 .build-main { min-width: 0; flex: 1; }
-.build-title { display: flex; gap: 0.4rem; align-items: baseline; flex-wrap: wrap; }
-.build-title .app-name { font-weight: 600; font-size: 12.5px; }
-.build-title .workflow { color: var(--muted); font-size: 12px; }
-.build-sub { font-size: 11px; color: var(--faint); display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.1rem; }
+.bl-top { display: flex; align-items: baseline; gap: 0.5rem; }
+.bl-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 12.5px; }
+.bl-time { flex-shrink: 0; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.bl-sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.1rem; }
 
 /* ── Status pills ───────────────────────────────────────── */
 .status {
