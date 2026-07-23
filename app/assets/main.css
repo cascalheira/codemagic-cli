@@ -242,8 +242,8 @@ input:focus, select:focus, .token-input:focus {
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 0.55rem;
-  padding: 0.45rem 0.55rem;
+  gap: 0.6rem;
+  padding: 0.7rem 0.6rem;
   border-radius: var(--radius);
 }
 .build-row:hover { background: var(--hover); }
@@ -291,7 +291,7 @@ input:focus, select:focus, .token-input:focus {
 .bl-top { display: flex; align-items: baseline; gap: 0.5rem; }
 .bl-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 12.5px; }
 .bl-time { flex-shrink: 0; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
-.bl-sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.1rem; }
+.bl-sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 0.2rem; }
 
 /* ── Status pills ───────────────────────────────────────── */
 .status {
