@@ -21,8 +21,26 @@ Wired end-to-end against the live API:
 `bundletool` (desktop only — needs a `bundletool` binary or Java; the JAR is
 auto-downloaded and cached on first use).
 
-Next up: new-build wizard, a mobile share sheet for downloads instead of a
-native dialog, and secure token storage (Keychain / Keystore).
+## Keyboard shortcuts
+
+`⌘` is `Ctrl` outside macOS. The single-letter forms match the terminal
+client's bindings.
+
+| Keys | Action |
+| --- | --- |
+| `↑` `↓` · `j` `k` | Move through builds |
+| `r` · `⌘R` | Refresh |
+| `n` · `⌘N` | New build |
+| `f` · `/` · `⌘F` | Filter by workflow |
+| `s` · `⌘,` | Settings |
+| `o` | Open the build on codemagic.io |
+| `?` | Show this list |
+| `Esc` | Close |
+
+Single-letter shortcuts are ignored while a text field has focus.
+
+Next up: a mobile share sheet for downloads instead of a native dialog, and
+secure token storage (Keychain / Keystore).
 
 ## Running
 

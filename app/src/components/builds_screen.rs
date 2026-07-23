@@ -11,6 +11,7 @@ use super::build_detail::BuildDetail;
 use super::icons::{GearIcon, PlusIcon, RefreshIcon};
 use super::new_build::NewBuildModal;
 use super::settings::SettingsModal;
+use super::shortcuts::{HelpModal, Shortcut, step, use_shortcuts};
 use crate::state::AppState;
 
 /// One accumulated view of the build list: every page loaded so far, the app
@@ -30,6 +31,7 @@ pub fn BuildsScreen() -> Element {
     let mut selected = use_signal(|| Option::<String>::None);
     let mut new_build_open = use_signal(|| false);
     let mut settings_open = use_signal(|| false);
+    let mut help_open = use_signal(|| false);
     let mut refreshing = use_signal(|| false);
     // How many pages to load; reaching the bottom of the list bumps this.
     let mut pages = use_signal(|| 1usize);
@@ -160,6 +162,68 @@ pub fn BuildsScreen() -> Element {
             tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
             refreshing.set(true);
             builds.restart();
+        }
+    });
+
+    // Keyboard shortcuts. Everything here reads with `peek()`: this closure
+    // runs from a background task, and subscribing to signals outside the
+    // render would make it a reactive dependency of itself.
+    use_shortcuts(move |shortcut| {
+        // An open overlay swallows everything but Escape, so typing a branch
+        // name in the wizard can't drive the list behind it.
+        if *help_open.peek() || *new_build_open.peek() || *settings_open.peek() {
+            if shortcut == Shortcut::Close {
+                help_open.set(false);
+                new_build_open.set(false);
+                settings_open.set(false);
+            }
+            return;
+        }
+        // Snapshot the list before doing anything that writes a signal.
+        let list: Vec<Build> = cached
+            .peek()
+            .as_ref()
+            .map(|p| p.builds.clone())
+            .unwrap_or_default();
+        let current = selected.peek().clone();
+
+        match shortcut {
+            Shortcut::Next | Shortcut::Prev => {
+                let delta = if shortcut == Shortcut::Next { 1 } else { -1 };
+                let order: Vec<String> = list.iter().map(|b| b.id.clone()).collect();
+                if let Some(next) = step(&order, current.as_deref(), delta) {
+                    selected.set(Some(next));
+                    // Keep the new row on screen. The scroll has to wait for
+                    // the row to actually be marked selected in the DOM.
+                    spawn(async move {
+                        tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+                        document::eval(
+                            "document.querySelector('.build-row.selected')\
+                             ?.scrollIntoView({block:'nearest'})",
+                        );
+                    });
+                }
+            }
+            Shortcut::Refresh => {
+                refreshing.set(true);
+                builds.restart();
+            }
+            Shortcut::NewBuild => new_build_open.set(true),
+            Shortcut::Settings => settings_open.set(true),
+            Shortcut::OpenInBrowser => {
+                if let Some(build) = current.and_then(|id| list.iter().find(|b| b.id == id)) {
+                    gantry_core::web::open_in_browser(&gantry_core::web::build_url(
+                        &build.app_id,
+                        &build.id,
+                    ));
+                }
+            }
+            Shortcut::FocusFilter => {
+                document::eval("document.querySelector('.wf-filter')?.focus()");
+            }
+            Shortcut::Help => help_open.set(true),
+            // Nothing is open, so Escape clears the selection.
+            Shortcut::Close => selected.set(None),
         }
     });
 
@@ -311,6 +375,9 @@ pub fn BuildsScreen() -> Element {
         }
         if settings_open() {
             SettingsModal { open: settings_open }
+        }
+        if help_open() {
+            HelpModal { open: help_open }
         }
     }
 }
