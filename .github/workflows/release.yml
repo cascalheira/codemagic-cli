@@ -255,17 +255,21 @@ jobs:
         with:
           key: bundle-${{ matrix.target }}
 
-      # Install dioxus-cli, pinned to the version in Cargo.lock.
-      - name: Install cargo-binstall
-        uses: cargo-bins/cargo-binstall@main
-
-      # Prefer a prebuilt binary, but disable binstall's source-build fallback:
-      # that fallback runs `cargo install` WITHOUT `--locked`, which mis-resolves
-      # git2 to 0.21 and fails to compile dioxus-cli's `auth-git2` dependency.
-      # Our explicit fallback uses `--locked`, honouring dioxus-cli's own lockfile.
+      # Install dioxus-cli from source, pinned + locked to match Cargo.lock.
+      # (Prebuilt via binstall is faster, but its no-prebuilt path either drops
+      # --locked — mis-resolving git2 and failing to compile auth-git2 — or
+      # exits 0 without installing. --locked from source is deterministic.)
+      # Then put the cargo bin dir on PATH for the bundle step (native path on
+      # Windows) and verify `dx` is actually runnable so any failure surfaces here.
       - name: Install dioxus-cli
         shell: bash
-        run: cargo binstall dioxus-cli@0.7.9 -y --disable-strategies compile || cargo install dioxus-cli@0.7.9 --locked
+        run: |
+          set -eo pipefail
+          cargo install dioxus-cli@0.7.9 --locked
+          BIN="$HOME/.cargo/bin"
+          if command -v cygpath >/dev/null 2>&1; then BIN="$(cygpath -w "$BIN")"; fi
+          echo "$BIN" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/dx" --version
 
       - name: Bundle desktop app
         working-directory: app
