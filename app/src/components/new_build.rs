@@ -1,5 +1,6 @@
 //! "New build" wizard: pick app → workflow → branch, then trigger a build.
 
+use codemagic_core::models::Application;
 use dioxus::prelude::*;
 
 use crate::state::AppState;
@@ -80,6 +81,19 @@ pub fn NewBuildModal(open: Signal<bool>, on_started: EventHandler<String>) -> El
         });
     };
 
+    // Owned snapshots: a read guard held live inside `rsx!` stays borrowed
+    // across the reactive flush, which deadlocks if a spawned task writes the
+    // same signal.
+    let apps_state: Option<Result<Vec<Application>, String>> = match &*apps.read() {
+        None => None,
+        Some(Err(e)) => Some(Err(e.to_string())),
+        Some(Ok(list)) => Some(Ok(list.clone())),
+    };
+    let error_msg: Option<String> = error.read().clone();
+    let selected_app = app_id.read().clone().unwrap_or_default();
+    let selected_workflow = workflow_id.read().clone().unwrap_or_default();
+    let app_chosen = app_id.read().is_some();
+
     rsx! {
         div { class: "modal-overlay", onclick: move |_| open.set(false),
             div { class: "modal form-modal", onclick: move |e| e.stop_propagation(),
@@ -90,14 +104,14 @@ pub fn NewBuildModal(open: Signal<bool>, on_started: EventHandler<String>) -> El
                 div { class: "form-body",
                     // ── App ──
                     label { "App" }
-                    match &*apps.read() {
+                    match apps_state.as_ref() {
                         None => rsx! { p { class: "muted", "Loading apps…" } },
                         Some(Err(e)) => rsx! { p { class: "error", "Couldn't load apps: {e}" } },
                         Some(Ok(list)) => {
                             let list = list.clone();
                             rsx! {
                                 select {
-                                    value: "{app_id.read().clone().unwrap_or_default()}",
+                                    value: "{selected_app}",
                                     onchange: move |e| {
                                         let v = e.value();
                                         app_id.set(if v.is_empty() { None } else { Some(v) });
@@ -116,8 +130,8 @@ pub fn NewBuildModal(open: Signal<bool>, on_started: EventHandler<String>) -> El
                     // ── Workflow ──
                     label { "Workflow" }
                     select {
-                        disabled: app_id.read().is_none() || workflows.is_empty(),
-                        value: "{workflow_id.read().clone().unwrap_or_default()}",
+                        disabled: !app_chosen || workflows.is_empty(),
+                        value: "{selected_workflow}",
                         onchange: move |e| {
                             let v = e.value();
                             workflow_id.set(if v.is_empty() { None } else { Some(v) });
@@ -142,7 +156,7 @@ pub fn NewBuildModal(open: Signal<bool>, on_started: EventHandler<String>) -> El
                         }
                     }
 
-                    if let Some(msg) = &*error.read() {
+                    if let Some(msg) = error_msg.as_ref() {
                         p { class: "error", "{msg}" }
                     }
                 }

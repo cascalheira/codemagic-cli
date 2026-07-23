@@ -43,6 +43,11 @@ pub fn Onboarding() -> Element {
 
     let checking = matches!(*status.read(), Status::Checking);
 
+    // Owned snapshots: a read guard held live inside `rsx!` stays borrowed
+    // across the reactive flush, which deadlocks if a spawned task writes the
+    // same signal.
+    let status_now = status.read().clone();
+
     rsx! {
         section { class: "onboarding",
             div { class: "card",
@@ -62,7 +67,7 @@ pub fn Onboarding() -> Element {
                         if e.key() == Key::Enter { submit.call(()); }
                     },
                 }
-                if let Status::Error(msg) = &*status.read() {
+                if let Status::Error(msg) = &status_now {
                     p { class: "error", "{msg}" }
                 }
                 button {

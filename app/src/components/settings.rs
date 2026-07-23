@@ -52,6 +52,11 @@ pub fn SettingsModal(open: Signal<bool>) -> Element {
 
     let checking = matches!(*token_status.read(), TokenStatus::Checking);
 
+    // Owned snapshots: a read guard held live inside `rsx!` stays borrowed
+    // across the reactive flush, which deadlocks if a spawned task writes the
+    // same signal.
+    let token_state = token_status.read().clone();
+
     rsx! {
         div { class: "modal-overlay", onclick: move |_| open.set(false),
             div { class: "modal form-modal", onclick: move |e| e.stop_propagation(),
@@ -72,7 +77,7 @@ pub fn SettingsModal(open: Signal<bool>) -> Element {
                         button { class: "primary small", disabled: checking, onclick: save_token,
                             if checking { "Validating…" } else { "Update token" }
                         }
-                        match &*token_status.read() {
+                        match &token_state {
                             TokenStatus::Saved => rsx! { span { class: "ok-text", "Saved ✓" } },
                             TokenStatus::Error(m) => rsx! { span { class: "error", "{m}" } },
                             _ => rsx! {},
