@@ -45,16 +45,16 @@ jobs:
             artifact: codemagic-cli-linux-aarch64
 
           # ── Windows ──────────────────────────────────────────────────────────
-          # Both Windows jobs run on the x86-64 hosted runner.
-          # ARM64 is cross-compiled via MSVC's built-in ARM64 toolchain — no
-          # extra setup is required because Visual Studio ships the ARM64 CRT.
+          # x86-64 on the standard hosted runner; arm64 on the native ARM64
+          # runner. Native arm64 avoids cross-compiling `aws-lc-sys` (reqwest's
+          # rustls crypto backend), which is painful to cross-build for MSVC arm64.
           - name: Windows · x86-64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: codemagic-cli-windows-x86_64
 
-          - name: Windows · arm64 (cross-compiled)
-            runner: windows-latest
+          - name: Windows · arm64
+            runner: windows-11-arm
             target: aarch64-pc-windows-msvc
             artifact: codemagic-cli-windows-aarch64
 
@@ -240,6 +240,14 @@ jobs:
             target: x86_64-pc-windows-msvc
             package_types: nsis
             artifact: codemagic-app-windows-x86_64
+
+          # Native ARM64 runner: builds + bundles aarch64 without cross-compiling
+          # aws-lc-sys (see the CLI job's Windows note).
+          - name: App · Windows arm64
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            package_types: nsis
+            artifact: codemagic-app-windows-aarch64
 
     steps:
       - name: Checkout
