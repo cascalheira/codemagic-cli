@@ -16,7 +16,9 @@ use dioxus::prelude::*;
 const POLL_SECS: u64 = 5;
 
 use super::builds_screen::status_class;
-use super::icons::{ChevronIcon, DownloadIcon, ExternalLinkIcon, StopIcon};
+use super::icons::{
+    ChevronIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, JumpIcon, StopIcon, WrapIcon,
+};
 use crate::state::AppState;
 
 #[component]
@@ -224,6 +226,7 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                         for (i, action) in build.build_actions.iter().enumerate() {
                             StepAccordion {
                                 key: "{i}-{action.name}",
+                                idx: i,
                                 name: action.name.clone(),
                                 status: action.status.clone().unwrap_or_default(),
                                 duration: fmt_duration(action.started_at, action.finished_at),
@@ -304,6 +307,7 @@ enum LogState {
 
 #[component]
 fn StepAccordion(
+    idx: usize,
     name: String,
     status: String,
     duration: Option<String>,
@@ -312,6 +316,13 @@ fn StepAccordion(
     let state = use_context::<AppState>();
     let mut expanded = use_signal(|| false);
     let mut log = use_signal(|| LogState::Idle);
+    let mut query = use_signal(String::new);
+    let mut wrap = use_signal(|| true);
+    let mut save_msg = use_signal(|| Option::<String>::None);
+
+    // Stable per-step id so the toolbar can scroll and read back the <pre>.
+    // Only one build's steps are on screen at a time, so the index suffices.
+    let log_id = format!("steplog-{idx}");
 
     let toggle = move |_| {
         let now = !expanded();
@@ -333,9 +344,24 @@ fn StepAccordion(
         }
     };
 
-    // Owned copy: the log is written by a spawned task, so holding a read
-    // guard across `rsx!` risks deadlocking the reactive flush.
+    // Owned copies: these are written by spawned tasks and by the input
+    // handlers, so holding a read guard across `rsx!` risks deadlocking the
+    // reactive flush.
     let log_state = log.read().clone();
+    let q = query.read().clone();
+    let wrapped = wrap();
+    let saved = save_msg.read().clone();
+
+    // Scrolls the <pre> itself (not the accordion) so the toolbar stays put.
+    let jump = {
+        let log_id = log_id.clone();
+        move |to_bottom: bool| {
+            let target = if to_bottom { "el.scrollHeight" } else { "0" };
+            document::eval(&format!(
+                "const el = document.getElementById('{log_id}'); if (el) el.scrollTop = {target};"
+            ));
+        }
+    };
 
     rsx! {
         li { class: if expanded() { "step-row open" } else { "step-row" },
@@ -349,13 +375,142 @@ fn StepAccordion(
                 div { class: "step-log",
                     match &log_state {
                         LogState::Idle | LogState::Loading => rsx! { p { class: "muted log-note", "Loading log…" } },
-                        LogState::Loaded(t) => rsx! { pre { class: "log", "{t}" } },
                         LogState::Failed(e) => rsx! { p { class: "error log-note", "{e}" } },
+                        LogState::Loaded(t) => {
+                            let shown = filter_log(t, &q);
+                            let jump_up = jump.clone();
+                            let jump_down = jump.clone();
+                            let copy_id = log_id.clone();
+                            let save_text = shown.text.clone();
+                            let save_name = format!("{}.log", sanitize(&name));
+                            rsx! {
+                                div { class: "log-bar",
+                                    input {
+                                        class: "log-search",
+                                        r#type: "search",
+                                        placeholder: "Filter lines…",
+                                        value: "{q}",
+                                        oninput: move |e| query.set(e.value()),
+                                    }
+                                    span { class: "muted log-count",
+                                        if !q.is_empty() {
+                                            {match shown.matches {
+                                                0 => "no matches".to_string(),
+                                                1 => "1 line".to_string(),
+                                                n => format!("{n} lines"),
+                                            }}
+                                        }
+                                    }
+                                    button {
+                                        class: if wrapped { "ghost icon-btn on" } else { "ghost icon-btn" },
+                                        title: "Toggle word wrap",
+                                        onclick: move |_| wrap.toggle(),
+                                        WrapIcon {}
+                                    }
+                                    button {
+                                        class: "ghost icon-btn",
+                                        title: "Jump to top",
+                                        onclick: move |_| jump_up(false),
+                                        JumpIcon { up: true }
+                                    }
+                                    button {
+                                        class: "ghost icon-btn",
+                                        title: "Jump to bottom",
+                                        onclick: move |_| jump_down(true),
+                                        JumpIcon { up: false }
+                                    }
+                                    button {
+                                        class: "ghost icon-btn",
+                                        title: "Copy log",
+                                        onclick: move |_| {
+                                            // Copy what's on screen (so a filtered
+                                            // view copies just those lines). The
+                                            // execCommand path is the fallback for
+                                            // webviews that treat the app's custom
+                                            // scheme as an insecure context, where
+                                            // navigator.clipboard is unavailable.
+                                            document::eval(&format!(
+                                                r#"
+                                                const el = document.getElementById('{copy_id}');
+                                                const t = el ? el.innerText : '';
+                                                const fallback = () => {{
+                                                  const ta = document.createElement('textarea');
+                                                  ta.value = t;
+                                                  document.body.appendChild(ta);
+                                                  ta.select();
+                                                  document.execCommand('copy');
+                                                  ta.remove();
+                                                }};
+                                                if (navigator.clipboard) {{
+                                                  navigator.clipboard.writeText(t).catch(fallback);
+                                                }} else {{ fallback(); }}
+                                                "#
+                                            ));
+                                            save_msg.set(Some("Copied".into()));
+                                        },
+                                        CopyIcon {}
+                                    }
+                                    button {
+                                        class: "ghost icon-btn",
+                                        title: "Save log to a file",
+                                        onclick: move |_| {
+                                            let text = save_text.clone();
+                                            let file_name = save_name.clone();
+                                            spawn(async move {
+                                                let Some(handle) = rfd::AsyncFileDialog::new()
+                                                    .set_file_name(&file_name)
+                                                    .save_file()
+                                                    .await
+                                                else {
+                                                    return;
+                                                };
+                                                let dest = handle.path().to_path_buf();
+                                                match std::fs::write(&dest, text) {
+                                                    Ok(()) => save_msg.set(Some(format!("Saved to {}", dest.display()))),
+                                                    Err(e) => save_msg.set(Some(format!("Couldn't save: {e}"))),
+                                                }
+                                            });
+                                        },
+                                        DownloadIcon {}
+                                    }
+                                }
+                                if let Some(msg) = saved.as_ref() {
+                                    p { class: "muted log-note log-saved", "{msg}" }
+                                }
+                                pre {
+                                    id: "{log_id}",
+                                    class: if wrapped { "log" } else { "log nowrap" },
+                                    "{shown.text}"
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/// The lines of `text` to display for `query`, plus how many matched.
+///
+/// An empty query shows everything (and reports no matches, since there is
+/// nothing to count). Matching is case-insensitive substring, like the TUI's
+/// log search.
+struct LogView {
+    text: String,
+    matches: usize,
+}
+
+fn filter_log(text: &str, query: &str) -> LogView {
+    if query.trim().is_empty() {
+        return LogView { text: text.to_string(), matches: 0 };
+    }
+    let needle = query.to_lowercase();
+    let kept: Vec<&str> = text
+        .lines()
+        .filter(|l| l.to_lowercase().contains(&needle))
+        .collect();
+    LogView { matches: kept.len(), text: kept.join("\n") }
 }
 
 // ─── Artifact card ───────────────────────────────────────────────────────────
@@ -496,4 +651,32 @@ fn fmt_duration(start: Option<DateTime<Utc>>, end: Option<DateTime<Utc>>) -> Opt
     } else {
         format!("{secs}s")
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::filter_log;
+
+    const LOG: &str = "Compiling foo\nerror: bad thing\nwarning: ERROR-ish\ndone";
+
+    #[test]
+    fn empty_query_shows_everything() {
+        let v = filter_log(LOG, "  ");
+        assert_eq!(v.text, LOG);
+        assert_eq!(v.matches, 0);
+    }
+
+    #[test]
+    fn filters_case_insensitively() {
+        let v = filter_log(LOG, "error");
+        assert_eq!(v.matches, 2);
+        assert_eq!(v.text, "error: bad thing\nwarning: ERROR-ish");
+    }
+
+    #[test]
+    fn no_matches_yields_empty_text() {
+        let v = filter_log(LOG, "zzz");
+        assert_eq!(v.matches, 0);
+        assert_eq!(v.text, "");
+    }
 }

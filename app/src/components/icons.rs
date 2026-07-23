@@ -75,6 +75,53 @@ pub fn ExternalLinkIcon() -> Element {
     }
 }
 
+/// Word-wrap toggle: a line that bends back on itself.
+#[component]
+pub fn WrapIcon() -> Element {
+    rsx! {
+        svg {
+            class: "icon", view_box: "0 0 24 24", fill: "none", stroke: "currentColor",
+            stroke_width: "2", stroke_linecap: "round", stroke_linejoin: "round",
+            line { x1: "3", y1: "6", x2: "21", y2: "6" }
+            path { d: "M3 12h15a3 3 0 0 1 0 6h-4" }
+            polyline { points: "16 15 13 18 16 21" }
+            line { x1: "3", y1: "18", x2: "9", y2: "18" }
+        }
+    }
+}
+
+/// Jump to top / bottom, depending on `up`.
+#[component]
+pub fn JumpIcon(up: bool) -> Element {
+    rsx! {
+        svg {
+            class: "icon", view_box: "0 0 24 24", fill: "none", stroke: "currentColor",
+            stroke_width: "2", stroke_linecap: "round", stroke_linejoin: "round",
+            if up {
+                line { x1: "5", y1: "4", x2: "19", y2: "4" }
+                line { x1: "12", y1: "20", x2: "12", y2: "9" }
+                polyline { points: "7 14 12 9 17 14" }
+            } else {
+                line { x1: "5", y1: "20", x2: "19", y2: "20" }
+                line { x1: "12", y1: "4", x2: "12", y2: "15" }
+                polyline { points: "7 10 12 15 17 10" }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn CopyIcon() -> Element {
+    rsx! {
+        svg {
+            class: "icon", view_box: "0 0 24 24", fill: "none", stroke: "currentColor",
+            stroke_width: "2", stroke_linecap: "round", stroke_linejoin: "round",
+            rect { x: "9", y: "9", width: "12", height: "12", rx: "2" }
+            path { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" }
+        }
+    }
+}
+
 #[component]
 pub fn StopIcon() -> Element {
     rsx! {

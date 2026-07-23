@@ -408,8 +408,30 @@ input:focus, select:focus, .token-input:focus {
 .step-row.open .step-head .chevron { transform: rotate(90deg); }
 .step-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
 .step-dur { font-size: 12px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-.step-log { border-top: 1px solid var(--sep); background: var(--content-bg); max-height: 380px; overflow: auto; }
+/* The <pre> inside is the scroller, not this box, so the toolbar stays put. */
+.step-log { border-top: 1px solid var(--sep); background: var(--content-bg); }
 .step-log .log-note { padding: 0.7rem 0.85rem; margin: 0; font-size: 12px; }
+.step-log .log { max-height: 340px; }
+.step-log .log.nowrap { white-space: pre; word-break: normal; }
+
+.log-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--sep);
+}
+.log-search {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  padding: 0.28rem 0.5rem;
+}
+.log-search::-webkit-search-decoration, .log-search::-webkit-search-cancel-button { -webkit-appearance: none; }
+.log-count { font-size: 11px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.log-bar .icon-btn { flex-shrink: 0; }
+.log-bar .icon-btn.on { color: var(--accent); background: var(--hover); }
+.log-saved { padding-top: 0.5rem !important; padding-bottom: 0 !important; word-break: break-word; }
 
 /* ── Artifacts rail ─────────────────────────────────────── */
 .artifacts-rail {
