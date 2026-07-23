@@ -289,7 +289,13 @@ pub fn BuildsScreen() -> Element {
                 }
             }
             section { class: "detail-pane",
-                BuildDetail { selected }
+                BuildDetail {
+                    selected,
+                    on_started: move |build_id: String| {
+                        builds.restart();
+                        selected.set(Some(build_id));
+                    },
+                }
             }
         }
 

@@ -75,6 +75,20 @@ pub fn ExternalLinkIcon() -> Element {
     }
 }
 
+/// Re-run: a circular arrow with a play head.
+#[component]
+pub fn RerunIcon() -> Element {
+    rsx! {
+        svg {
+            class: "icon", view_box: "0 0 24 24", fill: "none", stroke: "currentColor",
+            stroke_width: "2", stroke_linecap: "round", stroke_linejoin: "round",
+            path { d: "M20 12a8 8 0 1 1-2.6-5.9" }
+            polyline { points: "20 3 20 8 15 8" }
+            path { d: "M10 9.5l5 2.5-5 2.5z", fill: "currentColor" }
+        }
+    }
+}
+
 /// Word-wrap toggle: a line that bends back on itself.
 #[component]
 pub fn WrapIcon() -> Element {

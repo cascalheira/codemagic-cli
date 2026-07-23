@@ -17,15 +17,17 @@ const POLL_SECS: u64 = 5;
 
 use super::builds_screen::status_class;
 use super::icons::{
-    ChevronIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, JumpIcon, StopIcon, WrapIcon,
+    ChevronIcon, CopyIcon, DownloadIcon, ExternalLinkIcon, JumpIcon, RerunIcon, StopIcon, WrapIcon,
 };
 use crate::state::AppState;
 
 #[component]
-pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
+pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<String>) -> Element {
     let state = use_context::<AppState>();
     let mut dl_status = use_signal(|| Option::<String>::None);
-    let mut cancel_status = use_signal(|| Option::<String>::None);
+    // Shared status line for the header actions (stop / re-run).
+    let mut action_status = use_signal(|| Option::<String>::None);
+    let mut rerunning = use_signal(|| false);
 
     // Re-fetches whenever the selected build id changes.
     let mut detail = use_resource(move || {
@@ -144,9 +146,14 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
     let has_downloads = build.artefacts.iter().any(|a| a.url.is_some());
     let cancellable = is_cancellable(&build.status);
     let build_id = build.id.clone();
+    // `None` for tag-triggered builds, which carry no branch to re-run against.
+    let rerun = build
+        .rerun_target()
+        .map(|(w, b)| (build.app_id.clone(), w.to_string(), b.to_string()));
+    let rerun_busy = rerunning();
     // Owned copies: a live read guard inside `rsx!` can deadlock against a
     // concurrent signal write (the async download/cancel tasks write these).
-    let cancel_msg: Option<String> = cancel_status.read().clone();
+    let action_msg: Option<String> = action_status.read().clone();
     let dl_msg: Option<String> = dl_status.read().clone();
 
     rsx! {
@@ -170,6 +177,43 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                             }
                         }
                     }
+                    if let Some((app_id, workflow_id, branch)) = rerun.clone() {
+                        {
+                            let client = state.client();
+                            rsx! {
+                                button {
+                                    class: "ghost icon-btn",
+                                    disabled: rerun_busy,
+                                    title: "Re-run this workflow on {branch}",
+                                    onclick: move |_| {
+                                        let client = client.clone();
+                                        let (app_id, workflow_id, branch) =
+                                            (app_id.clone(), workflow_id.clone(), branch.clone());
+                                        rerunning.set(true);
+                                        action_status.set(Some(format!("Starting a new build on {branch}…")));
+                                        spawn(async move {
+                                            let started = client
+                                                .start_build(&app_id, &workflow_id, &branch)
+                                                .await;
+                                            rerunning.set(false);
+                                            match started {
+                                                // Hands the new id back to the list, which
+                                                // refreshes and selects it — same path the
+                                                // "New build" wizard takes.
+                                                Ok(new_id) => {
+                                                    action_status.set(None);
+                                                    on_started.call(new_id);
+                                                }
+                                                Err(e) => action_status
+                                                    .set(Some(format!("Couldn't start build: {e}"))),
+                                            }
+                                        });
+                                    },
+                                    RerunIcon {}
+                                }
+                            }
+                        }
+                    }
                     if cancellable {
                         {
                             let client = state.client();
@@ -179,14 +223,14 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                                     onclick: move |_| {
                                         let client = client.clone();
                                         let build_id = build_id.clone();
-                                        cancel_status.set(Some("Stopping build…".into()));
+                                        action_status.set(Some("Stopping build…".into()));
                                         spawn(async move {
                                             match client.cancel_build(&build_id).await {
                                                 Ok(()) => {
-                                                    cancel_status.set(Some("Build stop requested.".into()));
+                                                    action_status.set(Some("Build stop requested.".into()));
                                                     detail.restart();
                                                 }
-                                                Err(e) => cancel_status.set(Some(format!("Couldn't stop build: {e}"))),
+                                                Err(e) => action_status.set(Some(format!("Couldn't stop build: {e}"))),
                                             }
                                         });
                                     },
@@ -197,7 +241,7 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                         }
                     }
                 }
-                if let Some(msg) = cancel_msg.as_ref() {
+                if let Some(msg) = action_msg.as_ref() {
                     p { class: "dl-status", "{msg}" }
                 }
 

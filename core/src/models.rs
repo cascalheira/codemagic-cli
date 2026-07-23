@@ -102,6 +102,17 @@ impl Build {
             .or(self.file_workflow_id.as_deref())
     }
 
+    /// The `(workflow_id, branch)` pair needed to re-trigger this build.
+    ///
+    /// `None` when either is missing: builds triggered from a tag carry no
+    /// branch, and `POST /builds` only accepts a branch, so those can't be
+    /// re-run as-is.
+    pub fn rerun_target(&self) -> Option<(&str, &str)> {
+        let workflow = self.effective_workflow_id()?;
+        let branch = self.branch.as_deref().filter(|b| !b.is_empty())?;
+        Some((workflow, branch))
+    }
+
     /// Human-readable workflow name from `config.name`, falling back to the
     /// workflow ID.
     pub fn workflow_display(&self) -> &str {
@@ -302,4 +313,59 @@ pub struct BuildAction {
 pub struct BuildDetailResponse {
     pub application: Application,
     pub build: Build,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Build;
+
+    /// Builds a `Build` from JSON so the tests exercise the real field names
+    /// and defaults rather than a hand-constructed struct.
+    fn build(json: serde_json::Value) -> Build {
+        serde_json::from_value(json).expect("valid build")
+    }
+
+    #[test]
+    fn rerun_prefers_the_workflow_editor_id() {
+        let b = build(serde_json::json!({
+            "_id": "b1", "appId": "a1", "status": "finished",
+            "workflowId": "wf-editor", "fileWorkflowId": "wf-yaml", "branch": "main",
+        }));
+        assert_eq!(b.rerun_target(), Some(("wf-editor", "main")));
+    }
+
+    #[test]
+    fn rerun_falls_back_to_the_yaml_workflow_id() {
+        let b = build(serde_json::json!({
+            "_id": "b1", "appId": "a1", "status": "finished",
+            "fileWorkflowId": "ios-release", "branch": "develop",
+        }));
+        assert_eq!(b.rerun_target(), Some(("ios-release", "develop")));
+    }
+
+    #[test]
+    fn tag_builds_have_no_rerun_target() {
+        let b = build(serde_json::json!({
+            "_id": "b1", "appId": "a1", "status": "finished",
+            "workflowId": "wf", "tag": "v1.2.3",
+        }));
+        assert_eq!(b.rerun_target(), None);
+    }
+
+    #[test]
+    fn an_empty_branch_is_not_a_rerun_target() {
+        let b = build(serde_json::json!({
+            "_id": "b1", "appId": "a1", "status": "finished",
+            "workflowId": "wf", "branch": "",
+        }));
+        assert_eq!(b.rerun_target(), None);
+    }
+
+    #[test]
+    fn a_missing_workflow_is_not_a_rerun_target() {
+        let b = build(serde_json::json!({
+            "_id": "b1", "appId": "a1", "status": "finished", "branch": "main",
+        }));
+        assert_eq!(b.rerun_target(), None);
+    }
 }
