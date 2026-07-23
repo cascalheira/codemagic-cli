@@ -8,6 +8,7 @@
 pub mod api;
 pub mod bundletool;
 pub mod config;
+pub mod log;
 pub mod models;
 pub mod status;
 pub mod update;

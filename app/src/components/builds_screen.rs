@@ -349,6 +349,10 @@ pub fn BuildsScreen() -> Element {
                             }
                             let has_more = page.has_more;
                             let names = page.names.clone();
+                            // With a single app in view its name is on every
+                            // row and carries no information, so drop it and
+                            // give the space back to the workflow name.
+                            let show_app = distinct_apps(&page.builds) > 1;
                             rsx! {
                                 for (label, gbuilds) in groups.iter() {
                                     div { key: "{label}", class: "day-group",
@@ -358,7 +362,7 @@ pub fn BuildsScreen() -> Element {
                                                 BuildRow {
                                                     key: "{build.id}",
                                                     data: build.clone(),
-                                                    app_name: names.get(&build.app_id).cloned(),
+                                                    app_name: show_app.then(|| names.get(&build.app_id).cloned()).flatten(),
                                                     selected,
                                                 }
                                             }
@@ -456,7 +460,8 @@ fn BuildRow(data: Build, app_name: Option<String>, selected: Signal<Option<Strin
     let id = build.id.clone();
     let is_selected = selected.read().as_deref() == Some(id.as_str());
 
-    let app = app_name.unwrap_or_else(|| "Unknown app".to_string());
+    // `None` when every visible build belongs to the same app.
+    let prefix = app_name.map(|a| format!("{a} · ")).unwrap_or_default();
     let number = build
         .display_build_number()
         .map(|n| format!(" · #{n}"))
@@ -473,10 +478,19 @@ fn BuildRow(data: Build, app_name: Option<String>, selected: Signal<Option<Strin
                     span { class: "bl-title", "{build.workflow_display()}" }
                     span { class: "bl-time", "{when}" }
                 }
-                div { class: "bl-sub", "{app} · {build.git_ref()}{number}" }
+                div { class: "bl-sub", "{prefix}{build.git_ref()}{number}" }
             }
         }
     }
+}
+
+/// How many distinct apps the visible builds belong to.
+fn distinct_apps(builds: &[Build]) -> usize {
+    builds
+        .iter()
+        .map(|b| b.app_id.as_str())
+        .collect::<HashSet<_>>()
+        .len()
 }
 
 /// Section label for a build's day: "Today", "Yesterday", or e.g. "July 22, 2026".
@@ -550,17 +564,35 @@ fn newly_finished(
 
 /// Maps a Codemagic status string to a CSS modifier class.
 pub fn status_class(status: &str) -> &'static str {
-    match status {
-        "finished" => "ok",
-        "failed" | "timeout" => "fail",
-        "canceled" => "cancel",
-        "queued" | "preparing" | "building" | "testing" | "publishing" => "run",
-        _ => "neutral",
-    }
+    gantry_core::status::class(status)
 }
 
 #[cfg(test)]
 mod tests {
+    use super::distinct_apps;
+
+    fn build(app_id: &str) -> super::Build {
+        serde_json::from_value(serde_json::json!({
+            "_id": format!("b-{app_id}"), "appId": app_id, "status": "finished",
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn one_app_means_its_name_is_redundant() {
+        assert_eq!(distinct_apps(&[build("a"), build("a")]), 1);
+    }
+
+    #[test]
+    fn two_apps_need_naming() {
+        assert_eq!(distinct_apps(&[build("a"), build("b"), build("a")]), 2);
+    }
+
+    #[test]
+    fn an_empty_list_has_no_apps() {
+        assert_eq!(distinct_apps(&[]), 0);
+    }
+
     use super::*;
 
     fn map(pairs: &[(&str, &str)]) -> HashMap<String, String> {

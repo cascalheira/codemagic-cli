@@ -245,12 +245,8 @@ input:focus, select:focus, .token-input:focus {
   border-radius: 9px;
 }
 .build-row:hover { background: var(--hover); }
-.build-row.selected { background: var(--accent); }
-.build-row.selected .bl-title { color: #fff; }
-.build-row.selected .bl-time { color: rgba(255, 255, 255, 0.82); }
-.build-row.selected .bl-sub { color: rgba(255, 255, 255, 0.88); }
-.build-row.selected .status-dot.cancel,
-.build-row.selected .status-dot.neutral { background: rgba(255, 255, 255, 0.9); }
+.build-row.selected { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.build-row.selected .bl-title { color: var(--text); }
 /* Hairline separator between rows (inset to align under the title). */
 .build-row:not(:last-child)::after {
   content: "";
@@ -354,6 +350,16 @@ input:focus, select:focus, .token-input:focus {
   text-align: center;
 }
 .status.small { min-width: 52px; font-size: 9.5px; }
+/* Nine identical "Success" pills bury the one row that failed, so a passing
+   step gets the same quiet dot the sidebar uses. */
+.step-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin: 0 22px 0 23px;
+  background: var(--ok);
+}
 .status.ok { background: var(--ok); }
 .status.fail { background: var(--danger); }
 .status.run { background: var(--run); }
@@ -387,6 +393,11 @@ input:focus, select:focus, .token-input:focus {
 }
 .meta-item dt { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }
 .meta-item dd { margin: 0.16rem 0 0; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+/* The commit subject is long and variable; giving it the full width and one
+   line stops it reflowing the grid above it. */
+.meta-item.wide { grid-column: 1 / -1; }
+.meta-item.wide dd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta-sha { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); margin-right: 0.5rem; }
 
 .detail-center h3 { margin: 1.6rem 0 0.55rem; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
 
@@ -410,7 +421,9 @@ input:focus, select:focus, .token-input:focus {
 /* The <pre> inside is the scroller, not this box, so the toolbar stays put. */
 .step-log { border-top: 1px solid var(--sep); background: var(--content-bg); }
 .step-log .log-note { padding: 0.7rem 0.85rem; margin: 0; font-size: 12px; }
-.step-log .log { max-height: 340px; }
+/* Grows with the window instead of sitting at a fixed height while
+   the column below it stays empty. */
+.step-log .log { max-height: max(260px, calc(100vh - 300px)); }
 .step-log .log.nowrap { white-space: pre; word-break: normal; }
 
 .log-bar {

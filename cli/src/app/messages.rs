@@ -140,7 +140,12 @@ impl App {
                 self.log_loading = false;
                 match result {
                     Ok(content) => {
-                        self.log_lines = content.lines().map(|l| l.to_string()).collect();
+                        // The API serves logs as HTML; without this the
+                        // terminal shows raw <span> tags and &gt; escapes.
+                        self.log_lines = gantry_core::log::parse(&content)
+                            .iter()
+                            .map(gantry_core::log::Line::text)
+                            .collect();
                         self.log_scroll = 0;
                         self.build_popup = Some(BuildPopup::LogContent);
                     }

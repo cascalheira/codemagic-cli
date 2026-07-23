@@ -253,13 +253,34 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
                     MetaItem { label: "Finished", value: fmt_time(build.finished_at) }
                     MetaItem { label: "Duration", value: duration.unwrap_or_else(|| "-".into()) }
                     if let Some(commit) = &build.commit {
-                        MetaItem {
-                            label: "Commit",
-                            value: format!(
-                                "{}{}",
-                                commit.sha.as_deref().map(|s| format!("{}  ", &s[..s.len().min(8)])).unwrap_or_default(),
-                                commit.message.as_deref().unwrap_or("-").lines().next().unwrap_or("-"),
-                            ),
+                        {
+                            let sha = commit
+                                .sha
+                                .as_deref()
+                                .map(|s| s[..s.len().min(8)].to_string())
+                                .unwrap_or_default();
+                            let subject = commit
+                                .message
+                                .as_deref()
+                                .unwrap_or("-")
+                                .lines()
+                                .next()
+                                .unwrap_or("-")
+                                .to_string();
+                            // The whole message on hover, since the row is
+                            // clipped to a single line.
+                            let full = commit.message.clone().unwrap_or_default();
+                            rsx! {
+                                div { class: "meta-item wide",
+                                    dt { "Commit" }
+                                    dd { title: "{full}",
+                                        if !sha.is_empty() {
+                                            span { class: "meta-sha", "{sha}" }
+                                        }
+                                        "{subject}"
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -349,7 +370,8 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
 enum LogState {
     Idle,
     Loading,
-    Loaded(String),
+    /// Already parsed out of the HTML the API serves.
+    Loaded(Vec<gantry_core::log::Line>),
     Failed(String),
 }
 
@@ -383,7 +405,7 @@ fn StepAccordion(
                     let client = state.client();
                     spawn(async move {
                         match client.fetch_log(&url).await {
-                            Ok(t) => log.set(LogState::Loaded(t)),
+                            Ok(t) => log.set(LogState::Loaded(gantry_core::log::parse(&t))),
                             Err(e) => log.set(LogState::Failed(e.to_string())),
                         }
                     });
@@ -415,7 +437,13 @@ fn StepAccordion(
         li { class: if expanded() { "step-row open" } else { "step-row" },
             div { class: "step-head", onclick: toggle,
                 ChevronIcon {}
-                span { class: "status small {status_class(&status)}", "{status}" }
+                // A passing step is the norm, so it gets a dot; anything else
+                // keeps the pill and stands out from the column.
+                if gantry_core::status::outcome(&status) == Some(true) {
+                    span { class: "step-dot", title: "{status}" }
+                } else {
+                    span { class: "status small {status_class(&status)}", "{status}" }
+                }
                 span { class: "step-name", "{name}" }
                 span { class: "step-dur muted", { duration.clone().unwrap_or_default() } }
             }
@@ -424,12 +452,12 @@ fn StepAccordion(
                     match &log_state {
                         LogState::Idle | LogState::Loading => rsx! { p { class: "muted log-note", "Loading log…" } },
                         LogState::Failed(e) => rsx! { p { class: "error log-note", "{e}" } },
-                        LogState::Loaded(t) => {
-                            let shown = filter_log(t, &q);
+                        LogState::Loaded(lines) => {
+                            let shown = filter_log(lines, &q);
                             let jump_up = jump.clone();
                             let jump_down = jump.clone();
                             let copy_id = log_id.clone();
-                            let save_text = shown.text.clone();
+                            let save_text = shown.text();
                             let save_name = format!("{}.log", sanitize(&name));
                             rsx! {
                                 div { class: "log-bar",
@@ -508,7 +536,22 @@ fn StepAccordion(
                                 pre {
                                     id: "{log_id}",
                                     class: if wrapped { "log" } else { "log nowrap" },
-                                    "{shown.text}"
+                                    for (i, line) in shown.lines.iter().enumerate() {
+                                        {
+                                            let line = line.clone();
+                                            rsx! {
+                                                for (j, seg) in line.segments.iter().enumerate() {
+                                                    if let Some(color) = seg.color.as_ref() {
+                                                        span { key: "{i}-{j}", style: "color: {color}", "{seg.text}" }
+                                                    } else {
+                                                        span { key: "{i}-{j}", "{seg.text}" }
+                                                    }
+                                                }
+                                                // <pre> keeps newlines, so one per line.
+                                                "\n"
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -519,31 +562,44 @@ fn StepAccordion(
     }
 }
 
-/// The lines of `text` to display for `query`, plus how many matched.
+/// The lines to display for `query`, plus how many matched.
 ///
 /// An empty query shows everything (and reports no matches, since there is
-/// nothing to count). Matching is case-insensitive substring, like the TUI's
-/// log search.
+/// nothing to count). Matching is case-insensitive substring against the
+/// line's *text*, so a search can't accidentally hit the markup the colours
+/// came from.
 struct LogView {
-    text: String,
+    lines: Vec<gantry_core::log::Line>,
     matches: usize,
 }
 
-fn filter_log(text: &str, query: &str) -> LogView {
+impl LogView {
+    /// The visible lines as plain text, for saving to a file.
+    fn text(&self) -> String {
+        self.lines
+            .iter()
+            .map(gantry_core::log::Line::text)
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+fn filter_log(lines: &[gantry_core::log::Line], query: &str) -> LogView {
     if query.trim().is_empty() {
         return LogView {
-            text: text.to_string(),
+            lines: lines.to_vec(),
             matches: 0,
         };
     }
     let needle = query.to_lowercase();
-    let kept: Vec<&str> = text
-        .lines()
-        .filter(|l| l.to_lowercase().contains(&needle))
+    let kept: Vec<gantry_core::log::Line> = lines
+        .iter()
+        .filter(|l| l.text().to_lowercase().contains(&needle))
+        .cloned()
         .collect();
     LogView {
         matches: kept.len(),
-        text: kept.join("\n"),
+        lines: kept,
     }
 }
 
@@ -690,27 +746,39 @@ fn fmt_duration(start: Option<DateTime<Utc>>, end: Option<DateTime<Utc>>) -> Opt
 #[cfg(test)]
 mod tests {
     use super::filter_log;
+    use gantry_core::log::parse;
 
     const LOG: &str = "Compiling foo\nerror: bad thing\nwarning: ERROR-ish\ndone";
 
     #[test]
     fn empty_query_shows_everything() {
-        let v = filter_log(LOG, "  ");
-        assert_eq!(v.text, LOG);
+        let v = filter_log(&parse(LOG), "  ");
+        assert_eq!(v.text(), LOG);
         assert_eq!(v.matches, 0);
     }
 
     #[test]
     fn filters_case_insensitively() {
-        let v = filter_log(LOG, "error");
+        let v = filter_log(&parse(LOG), "error");
         assert_eq!(v.matches, 2);
-        assert_eq!(v.text, "error: bad thing\nwarning: ERROR-ish");
+        assert_eq!(v.text(), "error: bad thing\nwarning: ERROR-ish");
     }
 
     #[test]
-    fn no_matches_yields_empty_text() {
-        let v = filter_log(LOG, "zzz");
+    fn no_matches_yields_no_lines() {
+        let v = filter_log(&parse(LOG), "zzz");
         assert_eq!(v.matches, 0);
-        assert_eq!(v.text, "");
+        assert_eq!(v.text(), "");
+    }
+
+    /// Searching must see the log text, never the markup the colours came
+    /// from — otherwise "span" or "color" would match every command line.
+    #[test]
+    fn the_filter_cannot_match_stripped_markup() {
+        let html = "<span style=\"color:#268BD2\">&gt; build</span>\nplain output";
+        let lines = parse(html);
+        assert_eq!(filter_log(&lines, "span").matches, 0);
+        assert_eq!(filter_log(&lines, "color").matches, 0);
+        assert_eq!(filter_log(&lines, "build").matches, 1);
     }
 }
