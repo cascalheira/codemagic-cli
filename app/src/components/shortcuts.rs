@@ -23,6 +23,8 @@ pub enum Shortcut {
     OpenInBrowser,
     /// Move focus to the workflow filter.
     FocusFilter,
+    /// Browse app and workflow IDs.
+    AppInfo,
     Help,
     /// Dismiss whatever overlay is open.
     Close,
@@ -42,6 +44,7 @@ pub fn parse(name: &str) -> Option<Shortcut> {
         "s" | "mod+," => Shortcut::Settings,
         "o" => Shortcut::OpenInBrowser,
         "f" | "/" | "mod+f" => Shortcut::FocusFilter,
+        "i" => Shortcut::AppInfo,
         "?" => Shortcut::Help,
         "Escape" => Shortcut::Close,
         _ => return None,
@@ -55,7 +58,7 @@ pub fn parse(name: &str) -> Option<Shortcut> {
 /// from under the app. Plain letters are ignored while a text field has focus
 /// so typing a branch name doesn't trigger navigation.
 const LISTENER_JS: &str = r#"
-    const PLAIN = ['ArrowUp','ArrowDown','j','k','r','n','o','s','f','/','?'];
+    const PLAIN = ['ArrowUp','ArrowDown','j','k','r','n','o','s','f','i','/','?'];
     const MOD = ['mod+r','mod+n','mod+f','mod+,'];
     // Re-running this script (on a hot reload) must not stack listeners.
     if (window.__gantryKeys) window.__gantryKeys();
@@ -121,6 +124,7 @@ pub fn HelpModal(open: Signal<bool>) -> Element {
         (format!("f  ·  /  ·  {modifier}F"), "Filter by workflow"),
         (format!("s  ·  {modifier},"), "Settings"),
         ("o".to_string(), "Open the build on codemagic.io"),
+        ("i".to_string(), "App & workflow IDs"),
         ("?".to_string(), "This list"),
         ("Esc".to_string(), "Close"),
     ];

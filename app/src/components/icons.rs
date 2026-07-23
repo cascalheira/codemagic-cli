@@ -75,6 +75,19 @@ pub fn ExternalLinkIcon() -> Element {
     }
 }
 
+#[component]
+pub fn InfoIcon() -> Element {
+    rsx! {
+        svg {
+            class: "icon", view_box: "0 0 24 24", fill: "none", stroke: "currentColor",
+            stroke_width: "2", stroke_linecap: "round", stroke_linejoin: "round",
+            circle { cx: "12", cy: "12", r: "9" }
+            line { x1: "12", y1: "11", x2: "12", y2: "16" }
+            line { x1: "12", y1: "8", x2: "12", y2: "8" }
+        }
+    }
+}
+
 /// Re-run: a circular arrow with a play head.
 #[component]
 pub fn RerunIcon() -> Element {

@@ -7,8 +7,9 @@ use chrono::{DateTime, Local, Utc};
 use gantry_core::{PAGE_SIZE, models::Build};
 use dioxus::prelude::*;
 
+use super::app_info::AppInfoModal;
 use super::build_detail::BuildDetail;
-use super::icons::{GearIcon, PlusIcon, RefreshIcon};
+use super::icons::{GearIcon, InfoIcon, PlusIcon, RefreshIcon};
 use super::new_build::NewBuildModal;
 use super::settings::SettingsModal;
 use super::shortcuts::{HelpModal, Shortcut, step, use_shortcuts};
@@ -32,6 +33,7 @@ pub fn BuildsScreen() -> Element {
     let mut new_build_open = use_signal(|| false);
     let mut settings_open = use_signal(|| false);
     let mut help_open = use_signal(|| false);
+    let mut app_info_open = use_signal(|| false);
     let mut refreshing = use_signal(|| false);
     // How many pages to load; reaching the bottom of the list bumps this.
     let mut pages = use_signal(|| 1usize);
@@ -171,11 +173,16 @@ pub fn BuildsScreen() -> Element {
     use_shortcuts(move |shortcut| {
         // An open overlay swallows everything but Escape, so typing a branch
         // name in the wizard can't drive the list behind it.
-        if *help_open.peek() || *new_build_open.peek() || *settings_open.peek() {
+        if *help_open.peek()
+            || *new_build_open.peek()
+            || *settings_open.peek()
+            || *app_info_open.peek()
+        {
             if shortcut == Shortcut::Close {
                 help_open.set(false);
                 new_build_open.set(false);
                 settings_open.set(false);
+                app_info_open.set(false);
             }
             return;
         }
@@ -221,6 +228,7 @@ pub fn BuildsScreen() -> Element {
             Shortcut::FocusFilter => {
                 document::eval("document.querySelector('.wf-filter')?.focus()");
             }
+            Shortcut::AppInfo => app_info_open.set(true),
             Shortcut::Help => help_open.set(true),
             // Nothing is open, so Escape clears the selection.
             Shortcut::Close => selected.set(None),
@@ -251,6 +259,12 @@ pub fn BuildsScreen() -> Element {
                             title: "Refresh",
                             onclick: move |_| { refreshing.set(true); builds.restart(); },
                             RefreshIcon {}
+                        }
+                        button {
+                            class: "ghost icon-btn",
+                            title: "App & workflow IDs",
+                            onclick: move |_| app_info_open.set(true),
+                            InfoIcon {}
                         }
                         button {
                             class: "ghost icon-btn",
@@ -378,6 +392,9 @@ pub fn BuildsScreen() -> Element {
         }
         if help_open() {
             HelpModal { open: help_open }
+        }
+        if app_info_open() {
+            AppInfoModal { open: app_info_open }
         }
     }
 }

@@ -2500,6 +2500,7 @@ dependencies = [
  "gantry-core",
  "notify-rust",
  "rfd 0.15.4",
+ "serde_json",
  "tokio",
  "window-vibrancy",
 ]

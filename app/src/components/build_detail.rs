@@ -467,29 +467,9 @@ fn StepAccordion(
                                         class: "ghost icon-btn",
                                         title: "Copy log",
                                         onclick: move |_| {
-                                            // Copy what's on screen (so a filtered
-                                            // view copies just those lines). The
-                                            // execCommand path is the fallback for
-                                            // webviews that treat the app's custom
-                                            // scheme as an insecure context, where
-                                            // navigator.clipboard is unavailable.
-                                            document::eval(&format!(
-                                                r#"
-                                                const el = document.getElementById('{copy_id}');
-                                                const t = el ? el.innerText : '';
-                                                const fallback = () => {{
-                                                  const ta = document.createElement('textarea');
-                                                  ta.value = t;
-                                                  document.body.appendChild(ta);
-                                                  ta.select();
-                                                  document.execCommand('copy');
-                                                  ta.remove();
-                                                }};
-                                                if (navigator.clipboard) {{
-                                                  navigator.clipboard.writeText(t).catch(fallback);
-                                                }} else {{ fallback(); }}
-                                                "#
-                                            ));
+                                            // Copies what's on screen, so a
+                                            // filtered view copies just those lines.
+                                            crate::clipboard::copy_element(&copy_id);
                                             save_msg.set(Some("Copied".into()));
                                         },
                                         CopyIcon {}

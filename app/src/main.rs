@@ -6,6 +6,7 @@
 
 use dioxus::prelude::*;
 
+mod clipboard;
 mod components;
 mod notify;
 mod state;

@@ -511,6 +511,37 @@ input:focus, select:focus, .token-input:focus {
 .row-actions input { flex: 1; }
 .ok-text { color: var(--ok); font-size: 12px; }
 
+/* App & workflow ID browser */
+.info-modal { width: min(620px, 100%); }
+.info-search { padding: 0.75rem 1rem; border-bottom: 1px solid var(--sep); }
+.info-search input { width: 100%; font-size: 12.5px; }
+.info-search input::-webkit-search-decoration,
+.info-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.info-body { padding: 0.85rem 1rem 1.15rem; overflow-y: auto; overscroll-behavior: contain; }
+.info-card + .info-card { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--sep); }
+.info-card h4 { margin: 0 0 0.35rem; font-size: 12.5px; font-weight: 600; }
+.info-none { font-size: 11.5px; margin: 0.2rem 0 0 0.1rem; }
+.info-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.18rem 0; }
+.info-label {
+  flex: 0 0 34%;
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.info-id {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.info-row .icon-btn { flex-shrink: 0; }
+.info-copied { font-size: 10.5px; color: var(--ok); }
+
 /* Shortcut reference sheet */
 .shortcut-list { margin: 0; }
 .shortcut-row { display: flex; align-items: baseline; gap: 1rem; padding: 0.3rem 0; }

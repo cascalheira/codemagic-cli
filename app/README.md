@@ -17,6 +17,9 @@ Wired end-to-end against the live API:
     list with per-file **Download**, **Download all**, and **Convert to APK**
     for `.aab` artifacts. Every download opens a native Save As / folder dialog.
 
+- **App & workflow IDs** — a searchable browser for the IDs `codemagic.yaml`,
+  the API, and CI scripts refer to, each copyable in one click.
+
 **AAB → APK** conversion is shared with the CLI via `gantry-core` and runs
 `bundletool` (desktop only — needs a `bundletool` binary or Java; the JAR is
 auto-downloaded and cached on first use).
@@ -34,6 +37,7 @@ client's bindings.
 | `f` · `/` · `⌘F` | Filter by workflow |
 | `s` · `⌘,` | Settings |
 | `o` | Open the build on codemagic.io |
+| `i` | App & workflow IDs |
 | `?` | Show this list |
 | `Esc` | Close |
 

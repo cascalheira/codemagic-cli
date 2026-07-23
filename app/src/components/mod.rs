@@ -1,3 +1,4 @@
+mod app_info;
 mod build_detail;
 mod builds_screen;
 mod icons;
