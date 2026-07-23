@@ -14,6 +14,10 @@ pub struct Config {
     /// Defaults to 30 when absent.
     #[serde(default)]
     pub refresh_interval_secs: Option<u64>,
+    /// Whether to check GitHub for a newer release on startup.
+    /// Defaults to enabled when absent.
+    #[serde(default)]
+    pub check_for_updates: Option<bool>,
 }
 
 /// Returns the path to the config file: `~/.config/gantry/config.toml`.

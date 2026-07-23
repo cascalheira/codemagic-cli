@@ -5,6 +5,16 @@ use dioxus::prelude::*;
 
 use crate::state::{AppState, MIN_REFRESH_SECS};
 
+/// Result of a manual "Check now".
+#[derive(Clone, PartialEq)]
+enum UpdateStatus {
+    Idle,
+    Checking,
+    UpToDate,
+    Available(gantry_core::update::Update),
+    Error(String),
+}
+
 #[derive(Clone, PartialEq)]
 enum TokenStatus {
     Idle,
@@ -20,6 +30,7 @@ pub fn SettingsModal(open: Signal<bool>) -> Element {
     let mut token_input = use_signal(|| state.token.read().clone());
     let mut token_status = use_signal(|| TokenStatus::Idle);
     let mut refresh_input = use_signal(|| state.refresh_secs.read().to_string());
+    let mut update_status = use_signal(|| UpdateStatus::Idle);
 
     let save_token = move |_| {
         let candidate = token_input.read().trim().to_string();
@@ -50,12 +61,25 @@ pub fn SettingsModal(open: Signal<bool>) -> Element {
         }
     };
 
+    let check_now = move |_| {
+        update_status.set(UpdateStatus::Checking);
+        spawn(async move {
+            match gantry_core::update::check(env!("CARGO_PKG_VERSION")).await {
+                Ok(Some(found)) => update_status.set(UpdateStatus::Available(found)),
+                Ok(None) => update_status.set(UpdateStatus::UpToDate),
+                Err(e) => update_status.set(UpdateStatus::Error(e.to_string())),
+            }
+        });
+    };
+
     let checking = matches!(*token_status.read(), TokenStatus::Checking);
 
     // Owned snapshots: a read guard held live inside `rsx!` stays borrowed
     // across the reactive flush, which deadlocks if a spawned task writes the
     // same signal.
     let token_state = token_status.read().clone();
+    let update_state = update_status.read().clone();
+    let auto_check = *state.check_updates.read();
 
     rsx! {
         div { class: "modal-overlay", onclick: move |_| open.set(false),
@@ -96,6 +120,42 @@ pub fn SettingsModal(open: Signal<bool>) -> Element {
                         button { class: "ghost small", onclick: save_refresh, "Save" }
                     }
                     p { class: "muted hint", "The builds list refreshes automatically at this interval (minimum {MIN_REFRESH_SECS}s)." }
+
+                    // ── Updates ──
+                    label { "Updates" }
+                    label { class: "check-row",
+                        input {
+                            r#type: "checkbox",
+                            checked: auto_check,
+                            onchange: move |e| state.set_check_updates(e.checked()),
+                        }
+                        span { "Check for a new version on startup" }
+                    }
+                    div { class: "row-actions",
+                        button {
+                            class: "ghost small",
+                            disabled: update_state == UpdateStatus::Checking,
+                            onclick: check_now,
+                            if update_state == UpdateStatus::Checking { "Checking…" } else { "Check now" }
+                        }
+                        match &update_state {
+                            UpdateStatus::UpToDate => rsx! {
+                                span { class: "ok-text", "You're up to date (", {env!("CARGO_PKG_VERSION")}, ")" }
+                            },
+                            UpdateStatus::Available(found) => {
+                                let url = found.url.clone();
+                                rsx! {
+                                    button {
+                                        class: "primary small",
+                                        onclick: move |_| gantry_core::web::open_in_browser(&url),
+                                        "Get {found.version}"
+                                    }
+                                }
+                            }
+                            UpdateStatus::Error(m) => rsx! { span { class: "error", "{m}" } },
+                            UpdateStatus::Idle | UpdateStatus::Checking => rsx! {},
+                        }
+                    }
                 }
                 div { class: "modal-foot",
                     button {

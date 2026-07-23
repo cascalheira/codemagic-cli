@@ -34,6 +34,8 @@ pub fn BuildsScreen() -> Element {
     let mut settings_open = use_signal(|| false);
     let mut help_open = use_signal(|| false);
     let mut app_info_open = use_signal(|| false);
+    // A newer release, once the startup check finds one and until dismissed.
+    let mut update = use_signal(|| Option::<gantry_core::update::Update>::None);
     let mut refreshing = use_signal(|| false);
     // How many pages to load; reaching the bottom of the list bumps this.
     let mut pages = use_signal(|| 1usize);
@@ -167,6 +169,19 @@ pub fn BuildsScreen() -> Element {
         }
     });
 
+    // One update check per launch, and only if the user hasn't opted out. A
+    // failed check is silent: an unreachable GitHub is not the user's problem
+    // to solve, and nagging about it every launch would be worse than useless.
+    let check_updates = state.check_updates;
+    use_future(move || async move {
+        if !*check_updates.peek() {
+            return;
+        }
+        if let Ok(Some(found)) = gantry_core::update::check(env!("CARGO_PKG_VERSION")).await {
+            update.set(Some(found));
+        }
+    });
+
     // Keyboard shortcuts. Everything here reads with `peek()`: this closure
     // runs from a background task, and subscribing to signals outside the
     // render would make it a reactive dependency of itself.
@@ -247,6 +262,7 @@ pub fn BuildsScreen() -> Element {
         .and_then(|r| r.as_ref().err().map(|e| e.to_string()));
 
     let spinning = refreshing() || loading;
+    let update_banner: Option<gantry_core::update::Update> = update.read().clone();
 
     rsx! {
         div { class: "layout",
@@ -352,6 +368,30 @@ pub fn BuildsScreen() -> Element {
                                         },
                                         div { class: "list-spinner" }
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+                if let Some(release) = update_banner.as_ref() {
+                    {
+                        let url = release.url.clone();
+                        rsx! {
+                            div { class: "update-banner",
+                                div { class: "update-text",
+                                    strong { "Version {release.version} is available" }
+                                    span { class: "muted", "You're on {env!(\"CARGO_PKG_VERSION\")}" }
+                                }
+                                button {
+                                    class: "primary small",
+                                    onclick: move |_| gantry_core::web::open_in_browser(&url),
+                                    "Get it"
+                                }
+                                button {
+                                    class: "ghost icon-btn",
+                                    title: "Dismiss",
+                                    onclick: move |_| update.set(None),
+                                    "×"
                                 }
                             }
                         }

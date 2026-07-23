@@ -16,6 +16,8 @@ pub struct AppState {
     pub token: Signal<String>,
     /// How often to auto-refresh the builds list (seconds).
     pub refresh_secs: Signal<u64>,
+    /// Whether to look for a newer release on startup.
+    pub check_updates: Signal<bool>,
 }
 
 impl AppState {
@@ -28,6 +30,7 @@ impl AppState {
                     .unwrap_or(DEFAULT_REFRESH_SECS)
                     .max(MIN_REFRESH_SECS),
             ),
+            check_updates: Signal::new(cfg.check_for_updates.unwrap_or(true)),
         }
     }
 
@@ -48,6 +51,7 @@ impl AppState {
         let mut cfg = config::load_config().ok().flatten().unwrap_or_default();
         cfg.api_token = self.token.read().clone();
         cfg.refresh_interval_secs = Some(*self.refresh_secs.read());
+        cfg.check_for_updates = Some(*self.check_updates.read());
         let _ = config::save_config(&cfg);
     }
 
@@ -58,6 +62,11 @@ impl AppState {
 
     pub fn set_refresh_secs(&mut self, secs: u64) {
         self.refresh_secs.set(secs.max(MIN_REFRESH_SECS));
+        self.persist();
+    }
+
+    pub fn set_check_updates(&mut self, enabled: bool) {
+        self.check_updates.set(enabled);
         self.persist();
     }
 

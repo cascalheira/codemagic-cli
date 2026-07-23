@@ -10,6 +10,7 @@ pub mod bundletool;
 pub mod config;
 pub mod models;
 pub mod status;
+pub mod update;
 pub mod web;
 
 pub use api::{ApiClient, PAGE_SIZE};

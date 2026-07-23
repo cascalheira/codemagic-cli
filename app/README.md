@@ -20,6 +20,9 @@ Wired end-to-end against the live API:
 - **App & workflow IDs** — a searchable browser for the IDs `codemagic.yaml`,
   the API, and CI scripts refer to, each copyable in one click.
 
+- **Updates** — on launch, checks GitHub Releases for a newer version and
+  offers a link to it. Toggleable in Settings, with a manual "Check now".
+
 **AAB → APK** conversion is shared with the CLI via `gantry-core` and runs
 `bundletool` (desktop only — needs a `bundletool` binary or Java; the JAR is
 auto-downloaded and cached on first use).
