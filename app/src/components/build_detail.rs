@@ -70,12 +70,26 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
     use_future(move || async move {
         loop {
             tokio::time::sleep(Duration::from_secs(POLL_SECS)).await;
-            let running = {
+            let should_poll = {
+                let sel = selected.read().clone();
+                // `None` means a fetch is still in flight; restarting would
+                // cancel it, and a build slower than POLL_SECS would then never
+                // finish loading at all.
+                let settled = detail.read().is_some();
                 let c = cached.read();
-                c.as_ref()
-                    .is_some_and(|(_, r)| is_cancellable(&r.build.status))
+                match (sel, c.as_ref()) {
+                    // Only poll the build actually on screen: the cache may
+                    // still hold a previously viewed (possibly running) build,
+                    // and polling that one would keep cancelling this one.
+                    // `is_running` rather than `is_cancellable` so an
+                    // unrecognised status doesn't poll forever.
+                    (Some(sel_id), Some((id, r))) => {
+                        *id == sel_id && settled && is_running(&r.build.status)
+                    }
+                    _ => false,
+                }
             };
-            if running {
+            if should_poll {
                 detail.restart();
             }
         }
@@ -464,7 +478,7 @@ fn sanitize(name: &str) -> String {
 
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
-use codemagic_core::status::is_cancellable;
+use codemagic_core::status::{is_cancellable, is_running};
 
 fn fmt_time(t: Option<DateTime<Utc>>) -> String {
     t.map(|t| t.format("%Y-%m-%d %H:%M").to_string())

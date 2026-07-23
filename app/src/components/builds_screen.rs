@@ -99,8 +99,10 @@ pub fn BuildsScreen() -> Element {
         refreshing.set(false);
         let Some(page) = page else { return };
 
+        // `peek` reads without subscribing. Using `read` here would make this
+        // effect depend on signals it also writes, retriggering itself forever.
         let mut seen: HashSet<String> =
-            known_workflows.read().iter().map(|(id, _)| id.clone()).collect();
+            known_workflows.peek().iter().map(|(id, _)| id.clone()).collect();
         let fresh: Vec<(String, String)> = page
             .builds
             .iter()
@@ -111,7 +113,7 @@ pub fn BuildsScreen() -> Element {
 
         // Notify on builds that have just left a running state. The first load
         // only seeds the map, so pre-existing builds don't all notify at once.
-        let previous = last_status.read().clone();
+        let previous = last_status.peek().clone();
         let current: Vec<(String, String)> = page
             .builds
             .iter()
