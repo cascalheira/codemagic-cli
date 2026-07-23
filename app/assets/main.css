@@ -243,11 +243,16 @@ input:focus, select:focus, .token-input:focus {
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
-  padding: 0.7rem 0.6rem;
-  border-radius: var(--radius);
+  padding: 0.95rem 0.7rem;
+  border-radius: 9px;
 }
 .build-row:hover { background: var(--hover); }
-.build-row.selected { background: var(--sel); }
+.build-row.selected { background: var(--accent); }
+.build-row.selected .bl-title { color: #fff; }
+.build-row.selected .bl-time { color: rgba(255, 255, 255, 0.82); }
+.build-row.selected .bl-sub { color: rgba(255, 255, 255, 0.88); }
+.build-row.selected .status-dot.cancel,
+.build-row.selected .status-dot.neutral { background: rgba(255, 255, 255, 0.9); }
 /* Hairline separator between rows (inset to align under the title). */
 .build-row:not(:last-child)::after {
   content: "";
