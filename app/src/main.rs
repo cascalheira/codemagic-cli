@@ -8,6 +8,8 @@ use dioxus::prelude::*;
 
 mod clipboard;
 mod components;
+#[cfg(feature = "desktop")]
+mod menu;
 mod notify;
 mod state;
 
@@ -41,7 +43,7 @@ fn main() {
                 .with_transparent(true);
         }
         dioxus::LaunchBuilder::desktop()
-            .with_cfg(Config::new().with_window(window))
+            .with_cfg(Config::new().with_window(window).with_menu(menu::build()))
             .launch(App);
     }
 

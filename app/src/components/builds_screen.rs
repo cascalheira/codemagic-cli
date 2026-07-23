@@ -185,7 +185,7 @@ pub fn BuildsScreen() -> Element {
     // Keyboard shortcuts. Everything here reads with `peek()`: this closure
     // runs from a background task, and subscribing to signals outside the
     // render would make it a reactive dependency of itself.
-    use_shortcuts(move |shortcut| {
+    let mut handle = move |shortcut: Shortcut| {
         // An open overlay swallows everything but Escape, so typing a branch
         // name in the wizard can't drive the list behind it.
         if *help_open.peek()
@@ -248,6 +248,14 @@ pub fn BuildsScreen() -> Element {
             // Nothing is open, so Escape clears the selection.
             Shortcut::Close => selected.set(None),
         }
+    };
+    use_shortcuts(handle);
+
+    // The native menu bar drives the same actions, plus a couple of links.
+    #[cfg(feature = "desktop")]
+    crate::menu::use_menu_commands(move |command| match command {
+        crate::menu::MenuCommand::Action(shortcut) => handle(shortcut),
+        crate::menu::MenuCommand::OpenUrl(url) => gantry_core::web::open_in_browser(url),
     });
 
     // Snapshot signal state into owned locals. Holding a `read()` guard alive

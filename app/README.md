@@ -46,6 +46,14 @@ client's bindings.
 
 Single-letter shortcuts are ignored while a text field has focus.
 
+## Menus
+
+Desktop builds get a native menu bar — the macOS menu bar, a window menu on
+Windows and Linux — replacing the minimal default Dioxus ships. Items route
+through the same actions as the shortcuts above, so there's one code path for
+both. macOS puts About/Settings/Quit in the application menu; Windows and
+Linux put Settings and Exit under File and About under Help.
+
 Next up: a mobile share sheet for downloads instead of a native dialog, and
 secure token storage (Keychain / Keystore).
 
