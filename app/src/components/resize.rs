@@ -149,6 +149,13 @@ fn apply(geo: Geometry) {
 
 #[component]
 pub fn ResizeHandles() -> Element {
+    // Only macOS needs these. Windows and Linux keep their native decorations,
+    // so the OS already draws the resize margin and handles the drag — laying
+    // our own strips over the edges would take that over and do it worse.
+    if !cfg!(target_os = "macos") {
+        return rsx! {};
+    }
+
     let mut drag = use_signal(|| Option::<Drag>::None);
     // Authoritative window size, because `inner_size()` goes stale. Seeded
     // from tao (correct at startup) and kept current by `Resized` events.

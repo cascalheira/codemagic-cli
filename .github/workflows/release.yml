@@ -226,19 +226,19 @@ jobs:
           - name: App · macOS arm64
             runner: macos-latest
             target: aarch64-apple-darwin
-            package_types: macos
+            package_flags: --package-types macos
             artifact: gantry-macos-aarch64
 
           - name: App · macOS x86-64 (cross-compiled)
             runner: macos-latest
             target: x86_64-apple-darwin
-            package_types: macos
+            package_flags: --package-types macos
             artifact: gantry-macos-x86_64
 
           - name: App · Windows x86-64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
-            package_types: nsis
+            package_flags: --package-types nsis
             artifact: gantry-windows-x86_64
 
           # Native ARM64 runner: builds + bundles aarch64 without cross-compiling
@@ -246,8 +246,24 @@ jobs:
           - name: App · Windows arm64
             runner: windows-11-arm
             target: aarch64-pc-windows-msvc
-            package_types: nsis
+            package_flags: --package-types nsis
             artifact: gantry-windows-aarch64
+
+          # Built on 22.04 rather than latest: a binary linked against a newer
+          # glibc won't start on older distros, but the reverse is fine, so the
+          # oldest supported runner gives the widest reach. Neither .deb nor
+          # AppImage bundles libc.
+          - name: App · Linux x86-64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            package_flags: --package-types deb --package-types appimage
+            artifact: gantry-linux-x86_64
+
+          - name: App · Linux arm64
+            runner: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            package_flags: --package-types deb --package-types appimage
+            artifact: gantry-linux-aarch64
 
     steps:
       - name: Checkout
@@ -262,6 +278,21 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: bundle-${{ matrix.target }}
+
+      # The GUI links against the GTK/WebKitGTK stack rather than shipping its
+      # own engine, so it needs the -dev packages to build. webkit2gtk-4.1 is
+      # the version wry 0.53 binds to; 4.0 won't satisfy pkg-config. libxdo is
+      # for tao's window handling, librsvg for rendering the icon into the
+      # .desktop entry, and the appindicator headers for the tray.
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y \
+            pkg-config libssl-dev \
+            libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libxdo-dev \
+            file desktop-file-utils
 
       # Install dioxus-cli from source, pinned + locked to match Cargo.lock.
       # (Prebuilt via binstall is faster, but its no-prebuilt path either drops
@@ -281,7 +312,11 @@ jobs:
 
       - name: Bundle desktop app
         working-directory: app
-        run: dx bundle --platform desktop --release --target ${{ matrix.target }} --package-types ${{ matrix.package_types }} --out-dir dist
+        # The AppImage tooling normally mounts itself with FUSE, which the
+        # runners don't provide; this makes it unpack to a temp dir instead.
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: dx bundle --platform desktop --release --target ${{ matrix.target }} ${{ matrix.package_flags }} --out-dir dist
 
       # ── macOS code signing + notarization ─────────────────────────────────
       # Import the Developer ID Application certificate into a short-lived
@@ -346,17 +381,37 @@ jobs:
         if: runner.os == 'macOS' && always()
         run: security delete-keychain build.keychain || true
 
-      # Zip the (signed + stapled) .app on macOS, or grab the NSIS setup .exe on
-      # Windows, then checksum.
+      # Rename each bundle to the artifact name so the release assets say which
+      # platform and architecture they're for, then checksum.
+      # • macOS   → the signed + stapled .app, zipped
+      # • Windows → the NSIS setup .exe
+      # • Linux   → a .deb and an .AppImage
       - name: Package
         shell: bash
         working-directory: app
         run: |
+          set -eo pipefail
+          # take <extension> <output-name>: the one matching bundle, renamed.
+          # `find` rather than a glob because the Linux bundlers nest their
+          # output in per-format subdirectories.
+          take() {
+            local found
+            found="$(find dist -type f -name "*.$1" | head -1)"
+            [[ -n "$found" ]] || { echo "no .$1 under dist/"; find dist; exit 1; }
+            cp "$found" "$2"
+            sha256sum "$2" > "$2.sha256"
+          }
+
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             APP="$(ls -d dist/*.app | head -1)"
             ditto -c -k --keepParent "$APP" "${{ matrix.artifact }}.zip"
             shasum -a 256 "${{ matrix.artifact }}.zip" > "${{ matrix.artifact }}.zip.sha256"
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            take deb "${{ matrix.artifact }}.deb"
+            take AppImage "${{ matrix.artifact }}.AppImage"
           else
+            # Top-level only: the raw gantry.exe also lands under dist/, and
+            # only the setup installer should ship.
             SETUP="$(ls dist/*.exe | head -1)"
             cp "$SETUP" "${{ matrix.artifact }}.exe"
             sha256sum "${{ matrix.artifact }}.exe" > "${{ matrix.artifact }}.exe.sha256"

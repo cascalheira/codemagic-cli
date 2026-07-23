@@ -219,9 +219,11 @@ input:focus, select:focus, .token-input:focus {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  /* Left inset clears the traffic lights, which share this row. */
-  padding: 3px 0.7rem 0.5rem 78px;
+  padding: 3px 0.7rem 0.5rem 0.7rem;
 }
+/* On macOS the traffic lights share this row, so the toolbar starts clear of
+   them. Windows and Linux have a real titlebar above and need no inset. */
+.mac .topbar { padding-left: 78px; }
 .topbar h1 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .actions { display: flex; gap: 0.28rem; align-items: center; }
 

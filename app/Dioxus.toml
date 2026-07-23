@@ -8,3 +8,11 @@ title = "Gantry"
 identifier = "io.github.cascalheira.gantry"
 publisher = "Gantry"
 icon = ["assets/icon.icns", "assets/icon.ico", "assets/icon-1024.png"]
+
+# dioxus-cli defaults this to `OfflineInstaller`, which embeds Microsoft's
+# entire WebView2 runtime installer and takes the setup .exe from ~4 MB to
+# ~175 MB. WebView2 ships with Windows 11 and arrives on Windows 10 with Edge,
+# so the runtime is almost always already there; on the rare machine without
+# it, the bootstrapper fetches it at install time.
+[bundle.windows.webview_install_mode.DownloadBootstrapper]
+silent = true

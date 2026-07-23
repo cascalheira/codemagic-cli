@@ -99,16 +99,25 @@ fn App() -> Element {
         }
     });
 
+    // macOS hides the titlebar and runs the UI under the traffic lights;
+    // Windows and Linux keep their native decorations. The CSS that
+    // compensates for that — the traffic-light inset, the drag strip — hangs
+    // off this class rather than applying everywhere.
+    let chrome = if cfg!(target_os = "macos") { " mac" } else { "" };
+
     rsx! {
         document::Stylesheet { href: MAIN_CSS }
-        main { class: if vibrant() { "app vibrant" } else { "app" },
+        main { class: if vibrant() { "app vibrant{chrome}" } else { "app{chrome}" },
             ResizeHandles {}
             if state.has_token() {
                 BuildsScreen {}
             } else {
                 // Onboarding has no toolbar to drag from, so it keeps the
-                // full-width strip under the traffic lights.
-                div { class: "drag-strip", onmousedown: move |_| start_drag() }
+                // full-width strip under the traffic lights. Elsewhere the
+                // native titlebar already serves that purpose.
+                if cfg!(target_os = "macos") {
+                    div { class: "drag-strip", onmousedown: move |_| start_drag() }
+                }
                 Onboarding {}
             }
         }
