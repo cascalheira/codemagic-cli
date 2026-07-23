@@ -228,8 +228,18 @@ input:focus, select:focus, .token-input:focus {
 .actions { display: flex; gap: 0.28rem; align-items: center; }
 
 /* ── Build list (sidebar source list) ───────────────────── */
-.build-list { list-style: none; margin: 0; padding: 0.3rem 0.45rem; }
+.day-group { padding: 0 0.4rem; }
+.day-header {
+  padding: 0.75rem 0.5rem 0.3rem;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+}
+.build-list { list-style: none; margin: 0; padding: 0; }
 .build-row {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 0.55rem;
@@ -238,6 +248,28 @@ input:focus, select:focus, .token-input:focus {
 }
 .build-row:hover { background: var(--hover); }
 .build-row.selected { background: var(--sel); }
+/* Hairline separator between rows (inset to align under the title). */
+.build-row:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 1.75rem;
+  right: 0.55rem;
+  bottom: 0;
+  height: 1px;
+  background: var(--sep);
+}
+.build-row:hover::after, .build-row.selected::after,
+.build-row:hover + .build-row::after, .build-row.selected + .build-row::after { display: none; }
+
+/* Bottom toolbar */
+.sidebar-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.5rem;
+  border-top: 1px solid var(--sep);
+}
+.foot-btn { color: var(--muted); }
 
 .status-dot {
   width: 8px;

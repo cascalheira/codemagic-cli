@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 
+use chrono::{DateTime, Local, Utc};
 use codemagic_core::models::Build;
 use dioxus::prelude::*;
 
@@ -54,12 +55,6 @@ pub fn BuildsScreen() -> Element {
                     h1 { "Builds" }
                     div { class: "actions", onmousedown: move |e| e.stop_propagation(),
                         button {
-                            class: "primary small",
-                            onclick: move |_| new_build_open.set(true),
-                            PlusIcon {}
-                            span { "New build" }
-                        }
-                        button {
                             class: if spinning { "ghost icon-btn spinning" } else { "ghost icon-btn" },
                             title: "Refresh",
                             onclick: move |_| { refreshing.set(true); builds.restart(); },
@@ -92,20 +87,42 @@ pub fn BuildsScreen() -> Element {
                             if resp.builds.is_empty() {
                                 rsx! { p { class: "muted center", "No builds yet." } }
                             } else {
+                                // Group consecutive builds by calendar day.
+                                let mut groups: Vec<(String, Vec<Build>)> = Vec::new();
+                                for b in &resp.builds {
+                                    let label = b.display_time().map(day_label).unwrap_or_else(|| "Earlier".into());
+                                    match groups.last_mut() {
+                                        Some((l, v)) if *l == label => v.push(b.clone()),
+                                        _ => groups.push((label, vec![b.clone()])),
+                                    }
+                                }
                                 rsx! {
-                                    ul { class: "build-list",
-                                        for build in resp.builds.iter() {
-                                            BuildRow {
-                                                key: "{build.id}",
-                                                data: build.clone(),
-                                                app_name: names.get(build.app_id.as_str()).map(|s| s.to_string()),
-                                                selected,
+                                    for (label, gbuilds) in groups.iter() {
+                                        div { key: "{label}", class: "day-group",
+                                            div { class: "day-header", "{label}" }
+                                            ul { class: "build-list",
+                                                for build in gbuilds.iter() {
+                                                    BuildRow {
+                                                        key: "{build.id}",
+                                                        data: build.clone(),
+                                                        app_name: names.get(build.app_id.as_str()).map(|s| s.to_string()),
+                                                        selected,
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
                         }
+                    }
+                }
+                div { class: "sidebar-foot",
+                    button {
+                        class: "ghost icon-btn foot-btn",
+                        title: "New build",
+                        onclick: move |_| new_build_open.set(true),
+                        PlusIcon {}
                     }
                 }
             }
@@ -138,10 +155,7 @@ fn BuildRow(data: Build, app_name: Option<String>, selected: Signal<Option<Strin
 
     let app = app_name.unwrap_or_else(|| "Unknown app".to_string());
     let number = build.display_build_number().map(|n| format!(" · #{n}")).unwrap_or_default();
-    let when = build
-        .display_time()
-        .map(|t| t.format("%b %d").to_string())
-        .unwrap_or_default();
+    let when = build.display_time().map(relative_time).unwrap_or_default();
 
     rsx! {
         li {
@@ -156,6 +170,52 @@ fn BuildRow(data: Build, app_name: Option<String>, selected: Signal<Option<Strin
                 div { class: "bl-sub", "{app} · {build.git_ref()}{number}" }
             }
         }
+    }
+}
+
+/// Section label for a build's day: "Today", "Yesterday", or e.g. "July 22, 2026".
+fn day_label(dt: DateTime<Utc>) -> String {
+    let local = dt.with_timezone(&Local);
+    let today = Local::now().date_naive();
+    let day = local.date_naive();
+    if day == today {
+        "Today".to_string()
+    } else if Some(day) == today.pred_opt() {
+        "Yesterday".to_string()
+    } else {
+        local.format("%B %-d, %Y").to_string()
+    }
+}
+
+/// Human relative time, e.g. "just now", "5 minutes ago", "2 days ago",
+/// "last week", "3 months ago", "last year".
+fn relative_time(dt: DateTime<Utc>) -> String {
+    let secs = (Utc::now() - dt).num_seconds().max(0);
+    let (mins, hours, days) = (secs / 60, secs / 3600, secs / 86_400);
+    let (weeks, months, years) = (days / 7, days / 30, days / 365);
+    let s = |n: i64| if n == 1 { "" } else { "s" };
+    if secs < 60 {
+        "just now".into()
+    } else if mins < 60 {
+        format!("{mins} minute{} ago", s(mins))
+    } else if hours < 24 {
+        format!("{hours} hour{} ago", s(hours))
+    } else if days == 1 {
+        "yesterday".into()
+    } else if days < 7 {
+        format!("{days} days ago")
+    } else if weeks == 1 {
+        "last week".into()
+    } else if days < 30 {
+        format!("{weeks} weeks ago")
+    } else if months == 1 {
+        "last month".into()
+    } else if months < 12 {
+        format!("{months} months ago")
+    } else if years == 1 {
+        "last year".into()
+    } else {
+        format!("{years} years ago")
     }
 }
 
