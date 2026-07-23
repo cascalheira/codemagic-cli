@@ -103,7 +103,11 @@ fn App() -> Element {
     // Windows and Linux keep their native decorations. The CSS that
     // compensates for that — the traffic-light inset, the drag strip — hangs
     // off this class rather than applying everywhere.
-    let chrome = if cfg!(target_os = "macos") { " mac" } else { "" };
+    let chrome = if cfg!(target_os = "macos") {
+        " mac"
+    } else {
+        ""
+    };
 
     rsx! {
         document::Stylesheet { href: MAIN_CSS }

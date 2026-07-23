@@ -13,17 +13,28 @@ impl App {
         self.app_info_selected = 0;
         self.app_info_copy_msg = None;
         // Reuse the same app list as the new-build wizard; fetch if not loaded.
-        if self.new_build_apps.is_empty()
-            && !self.new_build_apps_loading
-            && let Some(client) = self.api_client.clone()
-        {
-            self.new_build_apps_loading = true;
-            let tx = self.tx.clone();
-            tokio::spawn(async move {
-                let result = client.get_apps().await;
-                let _ = tx.send(AppMessage::AppsLoaded(result)).await;
-            });
+        if self.new_build_apps.is_empty() && !self.new_build_apps_loading {
+            self.fetch_apps();
         }
+    }
+
+    /// Loads the account's apps, unless a load is already in flight.
+    ///
+    /// Feeds three consumers: the ID browser, the new-build wizard, and the app
+    /// names shown in the builds list.
+    pub(crate) fn fetch_apps(&mut self) {
+        if self.new_build_apps_loading {
+            return;
+        }
+        let Some(client) = self.api_client.clone() else {
+            return;
+        };
+        self.new_build_apps_loading = true;
+        let tx = self.tx.clone();
+        tokio::spawn(async move {
+            let result = client.get_apps().await;
+            let _ = tx.send(AppMessage::AppsLoaded(result)).await;
+        });
     }
 
     pub(crate) fn handle_app_info_key(&mut self, key: KeyEvent) {
@@ -150,7 +161,7 @@ impl App {
 
 // ─── Clipboard ──────────────────────────────────────────────────────────────
 
-fn copy_to_clipboard(text: &str) -> Result<(), String> {
+pub(crate) fn copy_to_clipboard(text: &str) -> Result<(), String> {
     arboard::Clipboard::new()
         .map_err(|e| e.to_string())?
         .set_text(text)

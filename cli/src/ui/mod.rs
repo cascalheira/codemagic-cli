@@ -10,7 +10,9 @@ pub use ratatui::{
     },
 };
 
-pub use crate::app::{App, BuildPopup, LoadingState, NewBuildStep, Screen, is_running_status};
+pub use crate::app::{
+    App, BuildPopup, FilterColumn, LoadingState, NewBuildStep, Screen, is_running_status,
+};
 pub use crate::models::BuildAction;
 
 // ─── Sub-modules ─────────────────────────────────────────────────────────────
@@ -43,6 +45,7 @@ pub fn draw(f: &mut Frame, app: &App) {
                     BuildPopup::Artifacts => build_popup::draw_artifacts(f, app),
                     BuildPopup::LogSteps => build_popup::draw_log_steps(f, app),
                     BuildPopup::LogContent => build_popup::draw_log_content(f, app),
+                    BuildPopup::RemoteAccess => build_popup::draw_remote_access(f, app),
                 }
             }
         }

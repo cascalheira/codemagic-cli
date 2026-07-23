@@ -1,8 +1,6 @@
 use super::*;
-use crate::app::InfoEntry;
+use crate::app::{InfoEntry, PopupAction};
 use ratatui::widgets::Wrap;
-
-const BASE_ACTIONS: [&str; 2] = ["  ⇓ Download Artifacts", "  ≡ View Build Logs"];
 
 // ── 1. Actions menu ───────────────────────────────────────────────────────────
 
@@ -141,21 +139,18 @@ pub(super) fn draw_build_actions(f: &mut Frame, app: &App) {
     );
 
     // ── Action list ─────────────────────────────────────────────
-    let is_running = app
-        .builds
-        .get(app.selected_index)
-        .map(|b| is_running_status(&b.status))
-        .unwrap_or(false);
-    let mut items: Vec<ListItem> = BASE_ACTIONS
-        .iter()
-        .map(|a| ListItem::new(Line::from(*a)))
+    let items: Vec<ListItem> = app
+        .popup_actions()
+        .into_iter()
+        .map(|action| {
+            let style = match action {
+                PopupAction::Cancel => Style::default().fg(Color::Red),
+                PopupAction::RemoteAccess => Style::default().fg(Color::Cyan),
+                _ => Style::default(),
+            };
+            ListItem::new(Line::from(vec![Span::styled(action.label(), style)]))
+        })
         .collect();
-    if is_running {
-        items.push(ListItem::new(Line::from(vec![Span::styled(
-            "  ⊗ Cancel Build",
-            Style::default().fg(Color::Red),
-        )])));
-    }
 
     let list = List::new(items)
         .highlight_style(
@@ -199,6 +194,123 @@ pub(super) fn draw_build_actions(f: &mut Frame, app: &App) {
         ])),
         layout[4],
     );
+}
+
+// ── 1b. Remote access ─────────────────────────────────────────────────────────
+
+pub(super) fn draw_remote_access(f: &mut Frame, app: &App) {
+    let area = centered_popup(f, 74, 16);
+    let block = popup_block("Remote Access");
+    let inner = block.inner(area).inner(Margin {
+        horizontal: 1,
+        vertical: 0,
+    });
+    f.render_widget(block, area);
+
+    let layout = Layout::vertical([
+        Constraint::Fill(1),
+        Constraint::Length(2), // status (2 rows so long errors wrap)
+        Constraint::Length(1), // hint
+    ])
+    .split(inner);
+
+    if app.remote_access_loading {
+        f.render_widget(
+            Paragraph::new(" Requesting remote access…").style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::ITALIC),
+            ),
+            layout[0],
+        );
+    } else if let Some(err) = &app.remote_access_error {
+        // The usual case here is the API's own "Remote access is not enabled
+        // for this build", which is worth showing verbatim plus the fix.
+        f.render_widget(
+            Paragraph::new(vec![
+                Line::from(Span::styled(
+                    format!(" ✗ {err}"),
+                    Style::default().fg(Color::Red),
+                )),
+                Line::from(""),
+                Line::from(Span::styled(
+                    " Remote access has to be enabled for the workflow before the",
+                    Style::default().fg(Color::DarkGray),
+                )),
+                Line::from(Span::styled(
+                    " build starts, and only lasts while the build is running.",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ])
+            .wrap(Wrap { trim: false }),
+            layout[0],
+        );
+    } else {
+        let fields = app.remote_access_fields();
+        let items: Vec<ListItem> = fields
+            .iter()
+            .map(|(label, value)| {
+                ListItem::new(Line::from(vec![
+                    Span::styled(
+                        format!(" {label:<13}"),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::styled(truncate(value, 54), Style::default().fg(Color::White)),
+                ]))
+            })
+            .collect();
+
+        let list = List::new(items)
+            .highlight_style(
+                Style::default()
+                    .bg(Color::Blue)
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .highlight_symbol("▶");
+
+        let mut state = ListState::default();
+        state.select(Some(app.remote_access_index));
+        f.render_stateful_widget(list, layout[0], &mut state);
+    }
+
+    // ── Status line ──────────────────────────────────────────────────────────
+    if let Some(msg) = &app.remote_access_message {
+        let color = if msg.starts_with('✗') {
+            Color::Red
+        } else {
+            Color::Green
+        };
+        f.render_widget(
+            Paragraph::new(format!(" {msg}")).style(Style::default().fg(color)),
+            layout[1],
+        );
+    }
+
+    // ── Help hint ────────────────────────────────────────────────────────────
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Copy  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[v]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Open VNC  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[r]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Retry  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+            Span::styled(" Back", Style::default().fg(Color::DarkGray)),
+        ])),
+        layout[2],
+    );
+}
+
+/// Shortens `s` to `max` display columns, marking the cut with an ellipsis.
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    let head: String = s.chars().take(max.saturating_sub(1)).collect();
+    format!("{head}…")
 }
 
 // ── 2. Artifacts ──────────────────────────────────────────────────────────────

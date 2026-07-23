@@ -11,6 +11,10 @@ Wired end-to-end against the live API:
 - **Onboarding** — paste and validate an API token (persisted via `gantry-core`).
 - **Builds** — a master-detail screen:
   - **Sidebar** — the build list with status pills; click to select; refresh / sign out.
+    Two filters sit above it, **workflow** and **status**, applied server-side
+    so they search the whole build history rather than the loaded pages. The
+    status filter needs the v3 API and hides itself when unavailable (see the
+    "Two APIs" note in the [root README](../README.md#architecture)).
   - **Detail pane** — status, workflow, branch, version, timing, and commit;
     a **Steps** list with per-step status/duration and a **View log** viewer
     (fetched with the auth token and shown in an overlay); and an **Artifacts**
@@ -37,7 +41,7 @@ client's bindings.
 | `↑` `↓` · `j` `k` | Move through builds |
 | `r` · `⌘R` | Refresh |
 | `n` · `⌘N` | New build |
-| `f` · `/` · `⌘F` | Filter by workflow |
+| `f` · `/` · `⌘F` | Focus the workflow filter |
 | `s` · `⌘,` | Settings |
 | `o` | Open the build on codemagic.io |
 | `i` | App & workflow IDs |

@@ -1,7 +1,7 @@
 //! Shared application state, provided via Dioxus context.
 
 use dioxus::prelude::*;
-use gantry_core::{ApiClient, config};
+use gantry_core::{ApiClient, api_v3::V3Client, config};
 
 /// Default auto-refresh interval (seconds) when none is configured.
 pub const DEFAULT_REFRESH_SECS: u64 = 30;
@@ -38,9 +38,15 @@ impl AppState {
         !self.token.read().trim().is_empty()
     }
 
-    /// Builds an API client from the current token.
+    /// Builds a v1 API client from the current token.
     pub fn client(&self) -> ApiClient {
         ApiClient::new(self.token.read().clone())
+    }
+
+    /// Builds a v3 API client from the current token. Same credentials, a
+    /// different host — see [`gantry_core::api_v3`].
+    pub fn v3_client(&self) -> V3Client {
+        V3Client::new(self.token.read().clone())
     }
 
     /// Re-reads the on-disk config, applies the current in-memory settings on

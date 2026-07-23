@@ -1,5 +1,6 @@
 use super::*;
 
+use super::dialogs::copy_to_clipboard;
 use super::download::{convert_aab_to_apk, download_artifact};
 
 impl App {
@@ -16,12 +17,78 @@ impl App {
     }
 
     pub(crate) fn confirm_build_action(&mut self) {
-        match self.popup_action_index {
-            0 => self.open_artifacts(),
-            1 => self.open_log_steps(),
-            2 => self.request_cancel_build(),
-            _ => {}
+        match self.popup_actions().get(self.popup_action_index) {
+            Some(PopupAction::Artifacts) => self.open_artifacts(),
+            Some(PopupAction::Logs) => self.open_log_steps(),
+            Some(PopupAction::Cancel) => self.request_cancel_build(),
+            Some(PopupAction::RemoteAccess) => self.open_remote_access(),
+            None => {}
         }
+    }
+
+    // ── Remote access ─────────────────────────────────────────────────────────
+
+    /// Opens the SSH / VNC popup for the selected build and fetches its
+    /// credentials. They are short-lived and tied to the running machine, so
+    /// they are fetched fresh every time rather than cached.
+    pub(crate) fn open_remote_access(&mut self) {
+        let Some(build_id) = self.selected_build().map(|b| b.id.clone()) else {
+            return;
+        };
+        let Some(client) = self.v3_client.clone() else {
+            return;
+        };
+
+        self.build_popup = Some(BuildPopup::RemoteAccess);
+        self.remote_access = None;
+        self.remote_access_error = None;
+        self.remote_access_message = None;
+        self.remote_access_index = 0;
+        self.remote_access_loading = true;
+
+        let tx = self.tx.clone();
+        tokio::spawn(async move {
+            let result = client.get_remote_access(&build_id).await;
+            let _ = tx.send(AppMessage::RemoteAccessLoaded(result)).await;
+        });
+    }
+
+    /// The copyable rows of the remote-access popup, as `(label, value)`.
+    pub fn remote_access_fields(&self) -> Vec<(&'static str, String)> {
+        let Some(access) = &self.remote_access else {
+            return Vec::new();
+        };
+        vec![
+            ("SSH script", access.ssh.script_url.clone()),
+            ("VNC URL", access.vnc.url()),
+            ("VNC host", access.vnc.host.clone()),
+            ("VNC port", access.vnc.port.to_string()),
+            ("VNC user", access.vnc.username.clone()),
+            ("VNC password", access.vnc.password.clone()),
+        ]
+    }
+
+    pub(crate) fn copy_remote_access_field(&mut self) {
+        let Some((label, value)) = self
+            .remote_access_fields()
+            .get(self.remote_access_index)
+            .cloned()
+        else {
+            return;
+        };
+        self.remote_access_message = match copy_to_clipboard(&value) {
+            Ok(()) => Some(format!("✓ Copied {label}")),
+            Err(e) => Some(format!("✗ Copy failed: {e}")),
+        };
+    }
+
+    /// Opens the VNC session in the system's default VNC handler.
+    pub(crate) fn open_vnc_session(&mut self) {
+        let Some(access) = &self.remote_access else {
+            return;
+        };
+        gantry_core::web::open_in_browser(&access.vnc.url());
+        self.remote_access_message = Some("✓ Opening VNC session…".into());
     }
 
     pub(crate) fn request_cancel_build(&mut self) {

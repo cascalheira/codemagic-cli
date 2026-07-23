@@ -162,6 +162,51 @@ impl Build {
     }
 }
 
+// ─── WorkflowChoice ──────────────────────────────────────────────────────────
+
+/// A workflow the user can filter builds by.
+///
+/// Carries the app it belongs to because workflow IDs are only unique within an
+/// app, and the v3 listing rejects a `workflow_id` that arrives without its
+/// `app_id`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkflowChoice {
+    pub id: String,
+    pub name: String,
+    pub app_id: String,
+}
+
+impl WorkflowChoice {
+    /// A stable string identity, for UI widgets that can only carry a string
+    /// (an HTML `<option value>`, say). Round-trips through [`Self::from_key`].
+    pub fn key(&self) -> String {
+        format!("{}/{}", self.app_id, self.id)
+    }
+
+    /// Finds the choice matching `key` in `choices`.
+    ///
+    /// Matching against a known list rather than parsing the key means a stale
+    /// or hand-edited value yields `None` instead of a plausible-looking
+    /// workflow that doesn't exist.
+    pub fn from_key<'a>(choices: &'a [Self], key: &str) -> Option<&'a Self> {
+        choices.iter().find(|c| c.key() == key)
+    }
+}
+
+impl Build {
+    /// The workflow this build ran, as a filterable choice.
+    ///
+    /// `None` for a build with no workflow ID at all, which cannot be filtered
+    /// on.
+    pub fn workflow_choice(&self) -> Option<WorkflowChoice> {
+        Some(WorkflowChoice {
+            id: self.effective_workflow_id()?.to_string(),
+            name: self.workflow_display().to_string(),
+            app_id: self.app_id.clone(),
+        })
+    }
+}
+
 // ─── Workflow (embedded in Application) ──────────────────────────────────────
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -317,7 +362,7 @@ pub struct BuildDetailResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::Build;
+    use super::{Build, WorkflowChoice};
 
     /// Builds a `Build` from JSON so the tests exercise the real field names
     /// and defaults rather than a hand-constructed struct.
@@ -359,6 +404,55 @@ mod tests {
             "workflowId": "wf", "branch": "",
         }));
         assert_eq!(b.rerun_target(), None);
+    }
+
+    #[test]
+    fn a_workflow_choice_carries_the_app_it_belongs_to() {
+        let b = build(serde_json::json!({
+            "_id": "b1", "appId": "a1", "status": "finished",
+            "workflowId": "wf", "config": {"name": "Release"},
+        }));
+        let choice = b.workflow_choice().expect("choice");
+        assert_eq!(choice.id, "wf");
+        assert_eq!(choice.name, "Release");
+        assert_eq!(choice.app_id, "a1");
+    }
+
+    #[test]
+    fn a_build_without_a_workflow_offers_no_choice() {
+        let b = build(serde_json::json!({
+            "_id": "b1", "appId": "a1", "status": "finished",
+        }));
+        assert_eq!(b.workflow_choice(), None);
+    }
+
+    #[test]
+    fn a_choice_round_trips_through_its_key() {
+        let choices = vec![
+            WorkflowChoice {
+                id: "wf1".into(),
+                name: "Release".into(),
+                app_id: "a1".into(),
+            },
+            // Same workflow ID under a different app: only the pair is unique.
+            WorkflowChoice {
+                id: "wf1".into(),
+                name: "Release".into(),
+                app_id: "a2".into(),
+            },
+        ];
+        let key = choices[1].key();
+        assert_eq!(WorkflowChoice::from_key(&choices, &key), Some(&choices[1]));
+    }
+
+    #[test]
+    fn an_unknown_key_matches_nothing() {
+        let choices = vec![WorkflowChoice {
+            id: "wf1".into(),
+            name: "Release".into(),
+            app_id: "a1".into(),
+        }];
+        assert_eq!(WorkflowChoice::from_key(&choices, "a9/wf9"), None);
     }
 
     #[test]

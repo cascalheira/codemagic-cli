@@ -27,10 +27,11 @@ Build everything with `cargo build`; build just the terminal client with
 
 | | |
 |---|---|
-| **Interactive TUI** | Browse all builds, filter by workflow, live-refresh running builds |
+| **Interactive TUI** | Browse all builds, filter by workflow **and status**, live-refresh running builds |
 | **Build actions** | Download artifacts, convert AAB → APK, stream logs |
+| **Remote access** | SSH / VNC credentials for a running build machine |
 | **New-build wizard** | Pick app → workflow → branch and trigger a build |
-| **CLI mode** | `download apk` subcommand for scripting and CI pipelines |
+| **CLI mode** | `download apk` and `remote-access` subcommands for scripting and CI pipelines |
 | **Clipboard** | Copy app / workflow IDs with one keypress |
 
 ---
@@ -219,17 +220,42 @@ Inside the **Log Viewer**:
 | `PgUp` / `PgDn` | Scroll 20 lines |
 | `Esc` | Back to step list |
 
----
+#### Remote Access
 
-### Workflow filter popup  (`f`)
+Only offered while a build is running. Fetches the SSH script URL and the VNC
+host / port / username / password for the machine the build is executing on.
 
 | Key | Action |
 |-----|--------|
-| `↑` / `↓` | Navigate |
-| `Enter` | Apply filter and reload builds |
+| `↑` / `↓` | Navigate fields |
+| `Enter` | Copy the selected field to the clipboard |
+| `v` | Open the VNC session in the system's default handler |
+| `r` | Retry the request |
+| `Esc` | Back to Build Actions |
+
+> Remote access has to be enabled for the workflow **before** the build starts,
+> and the credentials only exist while the build is running. Otherwise Codemagic
+> answers "Remote access is not enabled for this build", which is shown as-is.
+
+---
+
+### Filter popup  (`f`)
+
+Two columns: **Workflow** and **Status**.
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate the focused column |
+| `Tab` / `←` / `→` | Switch column |
+| `Enter` | Apply both filters and reload builds |
 | `Esc` | Cancel |
 
-The currently active filter is shown in the filter bar. Selecting **All Workflows** clears the filter.
+Both active filters are shown in the filter bar. **All Workflows** and **Any
+status** clear their respective filter.
+
+Filtering happens server-side, so a status filter searches your whole build
+history rather than only the builds already loaded. The status column needs the
+v3 API (see [Architecture](#architecture)) and is hidden when it is unavailable.
 
 ---
 
@@ -370,6 +396,35 @@ The cached JAR is shared between the TUI and the CLI, so it is only downloaded o
 brew install bundletool
 ```
 
+### `remote-access`
+
+Prints the SSH script URL and VNC credentials for the machine a build is
+running on.
+
+```bash
+gantry-cli remote-access --build-id 6a61dd804f424ae5d8417923
+```
+
+```
+SSH script : https://api.codemagic.io/remote-access/…/connect.sh
+VNC URL    : vnc://builder:s3cret@1.2.3.4:5900
+VNC host   : 1.2.3.4
+VNC port   : 5900
+VNC user   : builder
+VNC pass   : s3cret
+```
+
+Add `--json` for a machine-readable object to pipe into a VNC client or an
+`ssh` wrapper:
+
+```bash
+gantry-cli remote-access --build-id <id> --json | jq -r .vnc.url
+```
+
+> Remote access has to be enabled for the workflow **before** the build starts,
+> and the credentials only exist while the build is running. Otherwise the
+> command exits non-zero with Codemagic's own explanation.
+
 ---
 
 ## Artifact download path convention
@@ -417,7 +472,9 @@ src/
   cli.rs        Non-interactive download commands
   app.rs        TUI application state machine (screens, popups, async messages)
   ui.rs         ratatui rendering (all screens and popups)
-  api.rs        Codemagic REST API client (reqwest)
+  api.rs        Codemagic v1 REST API client (reqwest)
+  api_v3.rs     Codemagic v3 REST API client — filtered/cursor-paged build
+                listing and remote access; converts to the v1 build model
   models.rs     API response types (serde)
   config.rs     Config file read / write (toml)
 ```
@@ -428,6 +485,18 @@ src/
 - A dedicated `std::thread` reads crossterm events (blocking I/O) and forwards them via an `mpsc` channel — this prevents the tokio runtime from being blocked
 - API calls are spawned as tokio tasks; results arrive via a second `mpsc` channel
 - A 5-second interval ticker polls running builds to keep their status live
+
+**Two APIs:**
+
+Codemagic runs a v1 API (`api.codemagic.io`) and a newer v3 one
+(`codemagic.io/api/v3`), both authenticated with the same token. Gantry uses v3
+for the build listing — it is the only one that filters by status server-side,
+pages by cursor, and exposes remote access — and v1 for everything else: build
+details, logs, artifact URLs, and starting builds.
+
+v3 lists builds per team, so Gantry resolves the token's teams on startup and
+merges a page from each. If that call fails or the token sees no teams, the list
+falls back to the v1 endpoint and the status filter is hidden.
 
 ---
 

@@ -81,6 +81,63 @@ impl App {
                 }
             }
 
+            // ── v3 listing ───────────────────────────────────────────────────
+            AppMessage::TeamsLoaded(result) => {
+                self.loading_state = LoadingState::Idle;
+                match result {
+                    Ok(teams) => self.teams = teams,
+                    // No teams means no v3 listing; the v1 endpoint still works,
+                    // so this is a downgrade rather than an error worth showing.
+                    Err(_) => self.teams.clear(),
+                }
+                // v3 build pages carry only `app_id`, so the app names the list
+                // column needs have to come from the apps endpoint.
+                if self.v3_listing_active() {
+                    self.fetch_apps();
+                }
+                self.refresh();
+            }
+
+            AppMessage::V3BuildsLoaded(result) => {
+                self.loading_state = LoadingState::Idle;
+                let soft = std::mem::take(&mut self.is_soft_refresh);
+                match result {
+                    Ok(page) => {
+                        // A soft refresh only re-reads the first page, so the
+                        // cursors it returns point back at page 2. Keeping the
+                        // existing ones preserves how deep the user has paged.
+                        if !(page.first_page && soft) {
+                            self.cursors = page.cursors;
+                        }
+                        self.has_more = !self.cursors.is_empty();
+                        let replace = page.first_page && !soft;
+                        self.merge_builds(page.builds, replace);
+                        self.update_available_workflows();
+                        self.status_message = None;
+                    }
+                    Err(e) => {
+                        let msg = e.to_string();
+                        self.loading_state = LoadingState::Error(msg.clone());
+                        self.status_message = Some(msg);
+                    }
+                }
+            }
+
+            AppMessage::RemoteAccessLoaded(result) => {
+                self.remote_access_loading = false;
+                match result {
+                    Ok(access) => {
+                        self.remote_access = Some(access);
+                        self.remote_access_error = None;
+                        self.remote_access_index = 0;
+                    }
+                    Err(e) => {
+                        self.remote_access = None;
+                        self.remote_access_error = Some(e.to_string());
+                    }
+                }
+            }
+
             AppMessage::TokenValidated(result) => {
                 self.onboarding_loading = false;
                 match result {
@@ -94,9 +151,10 @@ impl App {
                             self.onboarding_error = Some(format!("Could not save config: {e}"));
                             return;
                         }
-                        self.api_client = Some(ApiClient::new(token));
+                        self.api_client = Some(ApiClient::new(token.clone()));
+                        self.v3_client = Some(V3Client::new(token));
                         self.screen = Screen::Builds;
-                        self.fetch_builds();
+                        self.start_session();
                     }
                     Ok(false) => {
                         self.onboarding_error = Some(
@@ -201,6 +259,12 @@ impl App {
                 self.new_build_apps_loading = false;
                 match result {
                     Ok(apps) => {
+                        // The builds list resolves app names through this map.
+                        // The v1 listing fills it from its own response, but the
+                        // v3 one returns bare app IDs, so seed it here too.
+                        for app in &apps {
+                            self.applications.insert(app.id.clone(), app.clone());
+                        }
                         self.new_build_apps = apps;
                         // Only reset the app cursor when the user is still on
                         // step 1 (or the wizard is closed). If they have already
@@ -259,12 +323,16 @@ impl App {
                             self.settings_error = Some(format!("Failed to save config: {e}"));
                             return;
                         }
-                        self.api_client = Some(ApiClient::new(token));
+                        self.api_client = Some(ApiClient::new(token.clone()));
+                        self.v3_client = Some(V3Client::new(token));
                         self.settings_success = Some("✓ Token updated successfully.".into());
-                        // Reload the builds list with the new credentials.
+                        // Reload with the new credentials. The teams the token
+                        // can see may differ, so re-resolve them too.
                         self.skip = 0;
+                        self.cursors.clear();
                         self.builds.clear();
-                        self.fetch_builds();
+                        self.applications.clear();
+                        self.start_session();
                     }
                     Ok(false) => {
                         self.settings_error = Some(

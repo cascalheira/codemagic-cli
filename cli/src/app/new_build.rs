@@ -7,7 +7,6 @@ impl App {
         }
         self.new_build_step = Some(NewBuildStep::SelectApp);
         self.new_build_apps = Vec::new();
-        self.new_build_apps_loading = true;
         self.new_build_app_index = 0;
         self.new_build_workflow_index = 0;
         self.new_build_typing_workflow = false;
@@ -18,14 +17,7 @@ impl App {
         self.new_build_error = None;
         self.new_build_submitting = false;
 
-        let Some(client) = self.api_client.clone() else {
-            return;
-        };
-        let tx = self.tx.clone();
-        tokio::spawn(async move {
-            let result = client.get_apps().await;
-            let _ = tx.send(AppMessage::AppsLoaded(result)).await;
-        });
+        self.fetch_apps();
     }
 
     pub(crate) fn confirm_new_build_app(&mut self) {

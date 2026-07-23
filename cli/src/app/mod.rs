@@ -7,6 +7,7 @@ use tokio::sync::mpsc;
 
 use crate::api::ApiClient;
 use crate::models::{Application, Build};
+use gantry_core::api_v3::{BuildStatusFilter, RemoteAccess, Team, V3Client};
 
 pub mod build_list;
 pub mod build_popup;
@@ -37,7 +38,44 @@ pub enum BuildPopup {
     LogSteps,
     /// Scrollable plain-text log for a single build step.
     LogContent,
+    /// SSH / VNC credentials for a running build's machine.
+    RemoteAccess,
 }
+
+// ─── Build action menu ───────────────────────────────────────────────────────
+
+/// One entry in the Build Actions menu. Which entries are present depends on
+/// the selected build, so the menu is built per build rather than indexed by a
+/// fixed position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PopupAction {
+    Artifacts,
+    Logs,
+    Cancel,
+    RemoteAccess,
+}
+
+impl PopupAction {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Artifacts => "  ⇓ Download Artifacts",
+            Self::Logs => "  ≡ View Build Logs",
+            Self::Cancel => "  ⊗ Cancel Build",
+            Self::RemoteAccess => "  ⇄ Remote Access (SSH / VNC)",
+        }
+    }
+}
+
+// ─── Filter popup ────────────────────────────────────────────────────────────
+
+/// Which column of the filter popup has the keyboard focus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterColumn {
+    Workflow,
+    Status,
+}
+
+pub use crate::models::WorkflowChoice;
 
 // ─── App-info dialog entry ─────────────────────────────────────────────────
 
@@ -102,9 +140,25 @@ pub enum LoadingState {
 
 // ─── Async messages ──────────────────────────────────────────────────────────
 
+/// One page of builds merged across every team, as returned by the v3 listing.
+pub struct V3Page {
+    pub builds: Vec<Build>,
+    /// Next-page cursor per team; a team missing from the map has no further
+    /// pages.
+    pub cursors: HashMap<String, String>,
+    /// `true` when this is a fresh first page rather than a load-more append.
+    pub first_page: bool,
+}
+
 pub enum AppMessage {
     // Builds list
     BuildsLoaded(Result<crate::models::BuildsResponse>),
+    /// Teams for the authenticated user; enables the v3 build listing.
+    TeamsLoaded(Result<Vec<Team>>),
+    /// A page of builds from the v3 listing (filtered, cursor-paginated).
+    V3BuildsLoaded(Result<V3Page>),
+    /// SSH / VNC credentials for the selected running build.
+    RemoteAccessLoaded(Result<RemoteAccess>),
     TokenValidated(Result<bool>),
     // Build detail sheet
     BuildDetailLoaded(Result<Build>),
@@ -156,11 +210,25 @@ pub struct App {
     pub has_more: bool,
     pub loading_state: LoadingState,
 
-    // ── Workflow filter ──
-    pub workflow_filter: Option<String>,
+    // ── Teams / v3 listing ──
+    /// Teams the token can see. Empty until `TeamsLoaded` arrives, and left
+    /// empty when v3 is unreachable — which is what keeps the v1 listing as the
+    /// fallback path.
+    pub teams: Vec<Team>,
+    /// Next-page cursor per team ID. A team absent from the map has no further
+    /// pages; an empty map after a first page means everything is loaded.
+    pub cursors: HashMap<String, String>,
+
+    // ── Filters ──
+    pub workflow_filter: Option<WorkflowChoice>,
+    /// Server-side status filter. Only available on the v3 listing.
+    pub status_filter: Option<BuildStatusFilter>,
     pub show_filter_popup: bool,
-    pub available_workflows: Vec<(String, String)>,
+    pub available_workflows: Vec<WorkflowChoice>,
     pub filter_selected_index: usize,
+    /// Highlighted row in the status column (0 = "Any status").
+    pub filter_status_index: usize,
+    pub filter_column: FilterColumn,
 
     // ── Build detail popup ──
     pub build_popup: Option<BuildPopup>,
@@ -188,6 +256,15 @@ pub struct App {
     pub apk_message: Option<String>,
     /// Status line shown in the Build Actions popup while cancelling.
     pub cancel_message: Option<String>,
+
+    // ── Remote access popup ──
+    pub remote_access: Option<RemoteAccess>,
+    pub remote_access_loading: bool,
+    pub remote_access_error: Option<String>,
+    /// Highlighted row in the remote-access field list.
+    pub remote_access_index: usize,
+    /// "✓ Copied …" feedback inside the remote-access popup.
+    pub remote_access_message: Option<String>,
 
     // ── New-build wizard ──
     pub new_build_step: Option<NewBuildStep>,
@@ -233,6 +310,7 @@ pub struct App {
 
     // ── Internals ──
     pub(crate) api_client: Option<ApiClient>,
+    pub(crate) v3_client: Option<V3Client>,
     pub(crate) tx: mpsc::Sender<AppMessage>,
     /// Set to `true` before a background soft-refresh so that the message
     /// handler merges the result instead of replacing the list.
@@ -241,9 +319,13 @@ pub struct App {
 
 impl App {
     pub fn new(tx: mpsc::Sender<AppMessage>, config: Option<crate::config::Config>) -> Self {
-        let (screen, api_client) = match config {
-            Some(cfg) => (Screen::Builds, Some(ApiClient::new(cfg.api_token))),
-            None => (Screen::Onboarding, None),
+        let (screen, api_client, v3_client) = match config {
+            Some(cfg) => (
+                Screen::Builds,
+                Some(ApiClient::new(cfg.api_token.clone())),
+                Some(V3Client::new(cfg.api_token)),
+            ),
+            None => (Screen::Onboarding, None, None),
         };
         Self {
             screen,
@@ -256,10 +338,15 @@ impl App {
             skip: 0,
             has_more: true,
             loading_state: LoadingState::Idle,
+            teams: Vec::new(),
+            cursors: HashMap::new(),
             workflow_filter: None,
+            status_filter: None,
             show_filter_popup: false,
             available_workflows: Vec::new(),
             filter_selected_index: 0,
+            filter_status_index: 0,
+            filter_column: FilterColumn::Workflow,
             build_popup: None,
             popup_action_index: 0,
             artifact_index: 0,
@@ -285,6 +372,11 @@ impl App {
             new_build_error: None,
             new_build_submitting: false,
             cancel_message: None,
+            remote_access: None,
+            remote_access_loading: false,
+            remote_access_error: None,
+            remote_access_index: 0,
+            remote_access_message: None,
             log_wrap: false,
             help_open: false,
             app_info_open: false,
@@ -300,6 +392,7 @@ impl App {
             status_message: None,
             last_refreshed: None,
             api_client,
+            v3_client,
             tx,
             is_soft_refresh: false,
         }
@@ -317,25 +410,49 @@ impl App {
     pub fn active_workflow_name(&self) -> &str {
         match &self.workflow_filter {
             None => "All Workflows",
-            Some(id) => self
-                .available_workflows
-                .iter()
-                .find(|(wid, _)| wid == id)
-                .map(|(_, name)| name.as_str())
-                .unwrap_or(id.as_str()),
+            Some(choice) => choice.name.as_str(),
         }
     }
 
-    /// Number of actions available for the currently selected build.
-    /// Normally 2 (Download Artifacts, View Build Logs); adds "Cancel Build"
-    /// when the build is still running.
-    pub fn action_count(&self) -> usize {
+    /// The Build Actions menu for the currently selected build.
+    ///
+    /// Artifacts and logs are always offered; cancelling and remote access only
+    /// mean anything while the build is still running, and remote access also
+    /// needs the v3 API to be reachable.
+    pub fn popup_actions(&self) -> Vec<PopupAction> {
+        let mut actions = vec![PopupAction::Artifacts, PopupAction::Logs];
         let running = self
             .builds
             .get(self.selected_index)
             .map(|b| is_running_status(&b.status))
             .unwrap_or(false);
-        if running { 3 } else { 2 }
+        if running {
+            actions.push(PopupAction::Cancel);
+            if self.v3_client.is_some() {
+                actions.push(PopupAction::RemoteAccess);
+            }
+        }
+        actions
+    }
+
+    /// Number of actions available for the currently selected build.
+    pub fn action_count(&self) -> usize {
+        self.popup_actions().len()
+    }
+
+    /// Whether the v3 build listing (server-side filters, cursor paging) is in
+    /// use. `false` falls the list back to the v1 endpoint, which can only
+    /// filter by workflow.
+    pub fn v3_listing_active(&self) -> bool {
+        self.v3_client.is_some() && !self.teams.is_empty()
+    }
+
+    /// Label for the status filter shown in the filter bar.
+    pub fn active_status_name(&self) -> &str {
+        match self.status_filter {
+            None => "Any status",
+            Some(s) => s.label(),
+        }
     }
 
     /// Number of builds in the list that are currently in a running state.
@@ -456,18 +573,19 @@ impl App {
         // Seed `seen` from workflows already in the list so that applying a
         // filter (which only loads builds for one workflow) never shrinks the
         // set of choices shown in the filter popup.
-        let mut seen: HashSet<String> = self
+        // Keyed by (app, workflow): the same workflow ID can appear under more
+        // than one app, and the two are only meaningful as a pair.
+        let mut seen: HashSet<(String, String)> = self
             .available_workflows
             .iter()
-            .map(|(id, _)| id.clone())
+            .map(|w| (w.app_id.clone(), w.id.clone()))
             .collect();
 
         for build in &self.builds {
-            if let Some(id) = build.effective_workflow_id()
-                && seen.insert(id.to_string())
+            if let Some(choice) = build.workflow_choice()
+                && seen.insert((choice.app_id.clone(), choice.id.clone()))
             {
-                self.available_workflows
-                    .push((id.to_string(), build.workflow_display().to_string()));
+                self.available_workflows.push(choice);
             }
         }
     }

@@ -134,6 +134,25 @@ impl App {
                 _ => {}
             },
 
+            BuildPopup::RemoteAccess => match key.code {
+                KeyCode::Esc | KeyCode::Char('q') => self.build_popup = Some(BuildPopup::Actions),
+                KeyCode::Up | KeyCode::Char('k') if self.remote_access_index > 0 => {
+                    self.remote_access_index -= 1;
+                    self.remote_access_message = None;
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    let max = self.remote_access_fields().len().saturating_sub(1);
+                    if self.remote_access_index < max {
+                        self.remote_access_index += 1;
+                        self.remote_access_message = None;
+                    }
+                }
+                KeyCode::Enter => self.copy_remote_access_field(),
+                KeyCode::Char('v') => self.open_vnc_session(),
+                KeyCode::Char('r') => self.open_remote_access(),
+                _ => {}
+            },
+
             BuildPopup::LogContent => match key.code {
                 KeyCode::Esc | KeyCode::Char('q') => {
                     self.build_popup = Some(BuildPopup::LogSteps);
@@ -175,6 +194,11 @@ impl App {
             KeyCode::Esc => self.show_filter_popup = false,
             KeyCode::Up | KeyCode::Char('k') => self.move_filter_up(),
             KeyCode::Down | KeyCode::Char('j') => self.move_filter_down(),
+            KeyCode::Tab
+            | KeyCode::Left
+            | KeyCode::Right
+            | KeyCode::Char('h')
+            | KeyCode::Char('l') => self.toggle_filter_column(),
             KeyCode::Enter => self.confirm_filter(),
             _ => {}
         }

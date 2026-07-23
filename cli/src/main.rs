@@ -45,6 +45,20 @@ enum Cmd {
         #[command(subcommand)]
         sub: DownloadSub,
     },
+
+    /// Print SSH / VNC credentials for a running build's machine.
+    ///
+    /// Requires the workflow to have had remote access enabled before the build
+    /// started; the credentials only exist while the build is running.
+    RemoteAccess {
+        /// Build ID (the last path segment of the build's Codemagic URL)
+        #[arg(long)]
+        build_id: String,
+
+        /// Print the raw API response as JSON instead of a readable summary
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -83,6 +97,10 @@ async fn main() -> Result<()> {
             cli::run_download_apk(&app_id, &workflow_id).await?;
         }
 
+        Some(Cmd::RemoteAccess { build_id, json }) => {
+            cli::run_remote_access(&build_id, json).await?;
+        }
+
         // ── Interactive TUI mode (default) ───────────────────────────────────
         None => {
             run_tui().await?;
@@ -116,7 +134,7 @@ async fn run_tui() -> Result<()> {
     let mut app = App::new(tx, saved_config);
 
     if app.screen == app::Screen::Builds {
-        app.fetch_builds();
+        app.start_session();
     }
 
     let (event_tx, mut event_rx) = mpsc::channel::<Event>(64);

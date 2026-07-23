@@ -153,11 +153,26 @@ pub fn save_window_state(state: WindowState) {
 mod tests {
     use super::{Monitor, WindowState};
 
-    const LAPTOP: Monitor = Monitor { x: 0.0, y: 0.0, width: 1440.0, height: 900.0 };
-    const EXTERNAL: Monitor = Monitor { x: 1440.0, y: 0.0, width: 2560.0, height: 1440.0 };
+    const LAPTOP: Monitor = Monitor {
+        x: 0.0,
+        y: 0.0,
+        width: 1440.0,
+        height: 900.0,
+    };
+    const EXTERNAL: Monitor = Monitor {
+        x: 1440.0,
+        y: 0.0,
+        width: 2560.0,
+        height: 1440.0,
+    };
 
     fn win(x: f64, y: f64) -> WindowState {
-        WindowState { x, y, width: 1180.0, height: 760.0 }
+        WindowState {
+            x,
+            y,
+            width: 1180.0,
+            height: 760.0,
+        }
     }
 
     #[test]
@@ -194,7 +209,12 @@ mod tests {
 
     #[test]
     fn size_never_restores_below_the_minimum() {
-        let tiny = WindowState { x: 0.0, y: 0.0, width: 200.0, height: 100.0 };
+        let tiny = WindowState {
+            x: 0.0,
+            y: 0.0,
+            width: 200.0,
+            height: 100.0,
+        };
         assert_eq!(tiny.clamped_size(720.0, 480.0), (720.0, 480.0));
         assert_eq!(win(0.0, 0.0).clamped_size(720.0, 480.0), (1180.0, 760.0));
     }
@@ -203,10 +223,30 @@ mod tests {
     fn nonsense_geometry_is_rejected() {
         assert!(win(0.0, 0.0).is_sane());
         for bad in [
-            WindowState { x: f64::NAN, y: 0.0, width: 800.0, height: 600.0 },
-            WindowState { x: 0.0, y: f64::INFINITY, width: 800.0, height: 600.0 },
-            WindowState { x: 0.0, y: 0.0, width: 0.0, height: 600.0 },
-            WindowState { x: 0.0, y: 0.0, width: 800.0, height: 0.0 },
+            WindowState {
+                x: f64::NAN,
+                y: 0.0,
+                width: 800.0,
+                height: 600.0,
+            },
+            WindowState {
+                x: 0.0,
+                y: f64::INFINITY,
+                width: 800.0,
+                height: 600.0,
+            },
+            WindowState {
+                x: 0.0,
+                y: 0.0,
+                width: 0.0,
+                height: 600.0,
+            },
+            WindowState {
+                x: 0.0,
+                y: 0.0,
+                width: 800.0,
+                height: 0.0,
+            },
         ] {
             assert!(!bad.is_sane(), "{bad:?}");
         }

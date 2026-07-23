@@ -125,7 +125,10 @@ pub fn HelpModal(open: Signal<bool>) -> Element {
         ("↑ ↓  ·  j k".to_string(), "Move through builds"),
         (format!("r  ·  {modifier}R"), "Refresh"),
         (format!("n  ·  {modifier}N"), "New build"),
-        (format!("f  ·  /  ·  {modifier}F"), "Filter by workflow"),
+        (
+            format!("f  ·  /  ·  {modifier}F"),
+            "Focus the workflow filter",
+        ),
         (format!("s  ·  {modifier},"), "Settings"),
         ("o".to_string(), "Open the build on codemagic.io"),
         ("i".to_string(), "App & workflow IDs"),

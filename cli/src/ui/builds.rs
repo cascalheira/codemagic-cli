@@ -31,22 +31,29 @@ pub(super) fn draw_builds(f: &mut Frame, app: &App) {
     );
 
     // ── Filter bar (left) ──
-    let filter_label = app.active_workflow_name();
-    let filter_color = if app.workflow_filter.is_some() {
-        Color::Yellow
-    } else {
-        Color::DarkGray
+    let active_color = |on: bool| {
+        if on { Color::Yellow } else { Color::DarkGray }
     };
-    f.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled(" Filter: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(filter_label, Style::default().fg(filter_color)),
-            Span::styled("  ", Style::default().fg(Color::DarkGray)),
-            Span::styled("[f]", Style::default().fg(Color::Yellow)),
-            Span::styled(" change", Style::default().fg(Color::DarkGray)),
-        ])),
-        filter_status[0],
-    );
+    let mut filter_spans = vec![
+        Span::styled(" Filter: ", Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            app.active_workflow_name(),
+            Style::default().fg(active_color(app.workflow_filter.is_some())),
+        ),
+    ];
+    if app.v3_listing_active() {
+        filter_spans.push(Span::styled(" · ", Style::default().fg(Color::DarkGray)));
+        filter_spans.push(Span::styled(
+            app.active_status_name(),
+            Style::default().fg(active_color(app.status_filter.is_some())),
+        ));
+    }
+    filter_spans.extend([
+        Span::styled("  ", Style::default().fg(Color::DarkGray)),
+        Span::styled("[f]", Style::default().fg(Color::Yellow)),
+        Span::styled(" change", Style::default().fg(Color::DarkGray)),
+    ]);
+    f.render_widget(Paragraph::new(Line::from(filter_spans)), filter_status[0]);
 
     // ── Status bar (right side of filter row) ──
     let status_right = match &app.loading_state {
@@ -261,23 +268,25 @@ pub(super) fn draw_builds_table(f: &mut Frame, app: &App, area: Rect) {
 // ─── Workflow filter popup ────────────────────────────────────────────────────
 
 pub(super) fn draw_filter_popup(f: &mut Frame, app: &App) {
-    let area = f.area();
+    // The status column only exists on the v3 listing; without it the popup
+    // stays the single workflow list it has always been.
+    let with_status = app.v3_listing_active();
 
-    // +2 for the "All Workflows" entry and borders.
-    let popup_height = (app.available_workflows.len() + 4).min(20) as u16;
-    let popup_width = 44u16;
-
-    let x = area.width.saturating_sub(popup_width) / 2;
-    let y = area.height.saturating_sub(popup_height) / 2;
-    let popup_area = Rect::new(x, y, popup_width, popup_height);
-
-    f.render_widget(Clear, popup_area);
+    let rows = app.available_workflows.len().max(if with_status {
+        gantry_core::api_v3::BuildStatusFilter::ALL.len()
+    } else {
+        0
+    }) + 1;
+    // borders(2) + header(1) + rows + hint(1)
+    let popup_height = (rows + 4).min(22) as u16;
+    let popup_width = if with_status { 62 } else { 44 };
+    let popup_area = centered_popup(f, popup_width, popup_height);
 
     let block = Block::default()
         .title(Line::from(vec![
             Span::raw(" "),
             Span::styled(
-                "Filter by Workflow",
+                "Filter Builds",
                 Style::default().add_modifier(Modifier::BOLD),
             ),
             Span::raw(" "),
@@ -289,39 +298,143 @@ pub(super) fn draw_filter_popup(f: &mut Frame, app: &App) {
     let inner = block.inner(popup_area);
     f.render_widget(block, popup_area);
 
-    // Build items: first entry is always "All Workflows".
-    let mut items: Vec<ListItem> = vec![ListItem::new(Line::from(vec![Span::styled(
-        " All Workflows",
-        if app.workflow_filter.is_none() {
+    let body = Layout::vertical([
+        Constraint::Length(1), // column headers
+        Constraint::Fill(1),   // lists
+        Constraint::Length(1), // hint
+    ])
+    .split(inner);
+
+    let columns = if with_status {
+        Layout::horizontal([Constraint::Percentage(58), Constraint::Percentage(42)]).split(body[1])
+    } else {
+        Layout::horizontal([Constraint::Percentage(100)]).split(body[1])
+    };
+    let headers = if with_status {
+        Layout::horizontal([Constraint::Percentage(58), Constraint::Percentage(42)]).split(body[0])
+    } else {
+        Layout::horizontal([Constraint::Percentage(100)]).split(body[0])
+    };
+
+    // ── Workflow column ──────────────────────────────────────────────────────
+    let workflow_focused = app.filter_column == FilterColumn::Workflow;
+    f.render_widget(column_header("Workflow", workflow_focused), headers[0]);
+
+    // Workflow names are only unique within an app, so qualify them once more
+    // than one app is in play.
+    let multi_app = app
+        .available_workflows
+        .iter()
+        .map(|w| &w.app_id)
+        .collect::<std::collections::HashSet<_>>()
+        .len()
+        > 1;
+
+    let mut items: Vec<ListItem> = vec![filter_row("All Workflows", app.workflow_filter.is_none())];
+    for workflow in &app.available_workflows {
+        let label = if multi_app {
+            format!("{} · {}", app.app_name(&workflow.app_id), workflow.name)
+        } else {
+            workflow.name.clone()
+        };
+        items.push(filter_row(
+            &label,
+            app.workflow_filter.as_ref() == Some(workflow),
+        ));
+    }
+    render_filter_column(
+        f,
+        columns[0],
+        items,
+        app.filter_selected_index,
+        workflow_focused,
+    );
+
+    // ── Status column ────────────────────────────────────────────────────────
+    if with_status {
+        let status_focused = app.filter_column == FilterColumn::Status;
+        f.render_widget(column_header("Status", status_focused), headers[1]);
+
+        let mut items: Vec<ListItem> = vec![filter_row("Any status", app.status_filter.is_none())];
+        for status in gantry_core::api_v3::BuildStatusFilter::ALL {
+            items.push(filter_row(
+                status.label(),
+                app.status_filter == Some(status),
+            ));
+        }
+        render_filter_column(
+            f,
+            columns[1],
+            items,
+            app.filter_status_index,
+            status_focused,
+        );
+    }
+
+    // ── Help hint ────────────────────────────────────────────────────────────
+    let mut hint = vec![Span::raw(" ")];
+    if with_status {
+        hint.push(Span::styled("[Tab]", Style::default().fg(Color::Yellow)));
+        hint.push(Span::styled(
+            " Switch column  ",
+            Style::default().fg(Color::DarkGray),
+        ));
+    }
+    hint.extend([
+        Span::styled("[Enter]", Style::default().fg(Color::Yellow)),
+        Span::styled(" Apply  ", Style::default().fg(Color::DarkGray)),
+        Span::styled("[Esc]", Style::default().fg(Color::Yellow)),
+        Span::styled(" Cancel", Style::default().fg(Color::DarkGray)),
+    ]);
+    f.render_widget(Paragraph::new(Line::from(hint)), body[2]);
+}
+
+/// A filter row, tinted green when it is the filter currently in effect.
+fn filter_row(label: &str, active: bool) -> ListItem<'static> {
+    ListItem::new(Line::from(vec![Span::styled(
+        format!(" {label}"),
+        if active {
             Style::default().fg(Color::Green)
         } else {
             Style::default()
         },
-    )]))];
+    )]))
+}
 
-    for (id, name) in &app.available_workflows {
-        let active = app.workflow_filter.as_deref() == Some(id.as_str());
-        items.push(ListItem::new(Line::from(vec![Span::styled(
-            format!(" {name}"),
-            if active {
-                Style::default().fg(Color::Green)
-            } else {
-                Style::default()
-            },
-        )])));
-    }
+fn column_header(label: &str, focused: bool) -> Paragraph<'static> {
+    let style = if focused {
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    Paragraph::new(Line::from(Span::styled(format!(" {label}"), style)))
+}
+
+/// Renders one filter column, dimming the highlight when it is not focused so
+/// the two columns' cursors can't be mistaken for each other.
+fn render_filter_column(
+    f: &mut Frame,
+    area: Rect,
+    items: Vec<ListItem<'static>>,
+    selected: usize,
+    focused: bool,
+) {
+    let highlight = if focused {
+        Style::default()
+            .bg(Color::Blue)
+            .fg(Color::White)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
 
     let list = List::new(items)
-        .highlight_style(
-            Style::default()
-                .bg(Color::Blue)
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol("▶ ");
+        .highlight_style(highlight)
+        .highlight_symbol(if focused { "▶ " } else { "  " });
 
-    let mut list_state = ListState::default();
-    list_state.select(Some(app.filter_selected_index));
-
-    f.render_stateful_widget(list, inner, &mut list_state);
+    let mut state = ListState::default();
+    state.select(Some(selected));
+    f.render_stateful_widget(list, area, &mut state);
 }

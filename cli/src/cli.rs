@@ -66,6 +66,58 @@ pub async fn run_download_apk(app_id: &str, workflow_id: &str) -> Result<()> {
     Ok(())
 }
 
+// ─── Remote access ────────────────────────────────────────────────────────────
+
+/// `gantry-cli remote-access --build-id X [--json]`
+///
+/// Prints the SSH script URL and VNC credentials for a running build machine.
+/// With `--json`, prints a machine-readable object instead, for piping into a
+/// VNC client or an `ssh` wrapper from CI glue.
+pub async fn run_remote_access(build_id: &str, json: bool) -> Result<()> {
+    let cfg = config::load_config()?.ok_or_else(|| {
+        anyhow!(
+            "No saved API token found.\n\
+             Run `gantry-cli` (no arguments) to open the TUI and complete setup."
+        )
+    })?;
+
+    let access = gantry_core::api_v3::V3Client::new(cfg.api_token)
+        .get_remote_access(build_id)
+        .await
+        .with_context(|| {
+            format!(
+                "Could not get remote access for build {build_id}.\n\
+                 Remote access has to be enabled for the workflow before the build \
+                 starts, and only lasts while the build is running."
+            )
+        })?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "ssh": { "script_url": access.ssh.script_url },
+                "vnc": {
+                    "url": access.vnc.url(),
+                    "host": access.vnc.host,
+                    "port": access.vnc.port,
+                    "username": access.vnc.username,
+                    "password": access.vnc.password,
+                },
+            })
+        );
+    } else {
+        println!("SSH script : {}", access.ssh.script_url);
+        println!("VNC URL    : {}", access.vnc.url());
+        println!("VNC host   : {}", access.vnc.host);
+        println!("VNC port   : {}", access.vnc.port);
+        println!("VNC user   : {}", access.vnc.username);
+        println!("VNC pass   : {}", access.vnc.password);
+    }
+
+    Ok(())
+}
+
 // ─── Build search ─────────────────────────────────────────────────────────────
 
 /// Walks through builds (newest first) until it finds one with an AAB artefact.

@@ -114,7 +114,7 @@ pub(super) fn draw_app_info(f: &mut Frame, app: &App) {
 // ─── Help popup ─────────────────────────────────────────────────────────────────
 
 pub(super) fn draw_help(f: &mut Frame, _app: &App) {
-    let area = centered_popup(f, 62, 36);
+    let area = centered_popup(f, 62, 44);
     let block = popup_block("Key Bindings — ?");
     let inner = block.inner(area).inner(Margin {
         horizontal: 1,
@@ -151,7 +151,7 @@ pub(super) fn draw_help(f: &mut Frame, _app: &App) {
         row("↑/k  ↓/j", "Navigate builds"),
         row("Enter", "Open Build Actions"),
         row("n", "New Build wizard"),
-        row("f", "Workflow filter"),
+        row("f", "Filter by workflow / status"),
         row("l", "Load more builds"),
         row("r", "Refresh list"),
         row("i", "App & Workflow IDs"),
@@ -167,6 +167,12 @@ pub(super) fn draw_help(f: &mut Frame, _app: &App) {
         section("Artifacts"),
         row("↑/k  ↓/j", "Navigate"),
         row("Enter", "Download / Convert→APK"),
+        row("Esc", "Back"),
+        separator(),
+        section("Remote Access (running builds)"),
+        row("↑/k  ↓/j", "Navigate fields"),
+        row("Enter", "Copy field to clipboard"),
+        row("v  /  r", "Open VNC session / retry"),
         row("Esc", "Back"),
         separator(),
         section("Log Viewer"),

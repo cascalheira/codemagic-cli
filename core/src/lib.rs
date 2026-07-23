@@ -6,6 +6,7 @@
 //! macOS, Windows, Linux, iOS, and Android.
 
 pub mod api;
+pub mod api_v3;
 pub mod bundletool;
 pub mod config;
 pub mod log;
