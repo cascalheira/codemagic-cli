@@ -36,12 +36,15 @@ impl BundletoolCmd {
 /// Downloads the given AAB artefact, converts it to a universal APK with
 /// bundletool, and writes the result to `dest`. Returns `dest` on success.
 ///
-/// `status` is invoked with human-readable progress messages.
+/// `status` is invoked with human-readable progress messages; `on_download`
+/// with `(bytes_so_far, total_if_known)` while the AAB itself downloads, so
+/// a front end can draw a real progress bar for the transfer.
 pub async fn convert_aab_to_apk(
     client: &ApiClient,
     aab: &Artefact,
     dest: &Path,
     mut status: impl FnMut(String),
+    on_download: impl FnMut(u64, Option<u64>),
 ) -> Result<PathBuf> {
     // 1. Short-lived public URL for the AAB.
     status("Creating artifact download URL…".into());
@@ -60,7 +63,9 @@ pub async fn convert_aab_to_apk(
     let apks_path = tmp.join(format!("{stem}.apks"));
 
     status(format!("Downloading {aab_name} ({})…", aab.display_size()));
-    client.download_file(&public_url, &aab_path).await?;
+    client
+        .download_file_progress(&public_url, &aab_path, on_download)
+        .await?;
 
     // 3. Locate (or fetch) bundletool.
     let bt = ensure_bundletool(&mut status).await?;

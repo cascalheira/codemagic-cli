@@ -33,9 +33,28 @@ pub(crate) async fn convert_aab_to_apk(
     let apk_name = format!("{stem}.apk");
     let dest = artifact_download_path(&app_name, &workflow_name, build_index, &apk_name);
 
-    gantry_core::bundletool::convert_aab_to_apk(&client, &artefact, &dest, move |msg| {
-        let _ = tx.try_send(AppMessage::ApkStatus(msg));
-    })
+    let tx_dl = tx.clone();
+    // Only whole-percent changes are forwarded, so the channel isn't
+    // flooded with a message per chunk.
+    let mut last_pct = u64::MAX;
+    gantry_core::bundletool::convert_aab_to_apk(
+        &client,
+        &artefact,
+        &dest,
+        move |msg| {
+            let _ = tx.try_send(AppMessage::ApkStatus(msg));
+        },
+        move |done, total| {
+            if let Some(t) = total.filter(|t| *t > 0) {
+                let pct = done * 100 / t;
+                if pct != last_pct {
+                    last_pct = pct;
+                    let _ =
+                        tx_dl.try_send(AppMessage::ApkStatus(format!("Downloading AAB… {pct}%")));
+                }
+            }
+        },
+    )
     .await
 }
 

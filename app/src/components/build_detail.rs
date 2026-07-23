@@ -1,6 +1,7 @@
 //! Center build-info column (metadata + expandable step logs) plus the
 //! right-hand artifacts download rail.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -25,6 +26,10 @@ use crate::state::AppState;
 pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<String>) -> Element {
     let state = use_context::<AppState>();
     let mut dl_status = use_signal(|| Option::<String>::None);
+    // Per-artifact download progress, name → (done, total). Shared between
+    // the per-card downloads, "Download all", and the AAB→APK conversion, so
+    // whatever is transferring, its card shows the live bar.
+    let downloads = use_signal(HashMap::<String, (u64, Option<u64>)>::new);
     // Shared status line for the header actions (stop / re-run).
     let mut action_status = use_signal(|| Option::<String>::None);
     let mut rerunning = use_signal(|| false);
@@ -379,7 +384,7 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
                                             for a in targets {
                                                 dl_status.set(Some(format!("Downloading {} ({}/{})…", a.display_name(), done + 1, total)));
                                                 let dest = dir.join(sanitize(a.display_name()));
-                                                if download_to(client.clone(), a, dest).await.is_ok() {
+                                                if download_tracked(client.clone(), a, dest, downloads).await.is_ok() {
                                                     done += 1;
                                                 }
                                             }
@@ -398,7 +403,7 @@ pub fn BuildDetail(selected: Signal<Option<String>>, on_started: EventHandler<St
                 } else {
                     ul { class: "artifact-list",
                         for art in build.artefacts.iter() {
-                            ArtifactCard { key: "{art.display_name()}", art: art.clone(), dl_status }
+                            ArtifactCard { key: "{art.display_name()}", art: art.clone(), dl_status, downloads }
                         }
                     }
                 }
@@ -701,17 +706,23 @@ fn filter_log(lines: &[gantry_core::log::Line], query: &str) -> LogView {
 // ─── Artifact card ───────────────────────────────────────────────────────────
 
 #[component]
-fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
+fn ArtifactCard(
+    art: Artefact,
+    dl_status: Signal<Option<String>>,
+    /// Shared per-artifact transfer progress, keyed by artifact name; this
+    /// card renders the entry matching its own artifact, whoever wrote it
+    /// (card click, "Download all", or an APK conversion's AAB download).
+    downloads: Signal<HashMap<String, (u64, Option<u64>)>>,
+) -> Element {
     let state = use_context::<AppState>();
     let name = art.display_name().to_string();
     let meta = format!("{}  ·  {}", art.display_type(), art.display_size());
     let has_url = art.url.is_some();
     let is_aab = art.is_aab();
-    // `(done, total)` while a download of this artifact is in flight; the
-    // card renders its progress bar from this.
-    let mut progress = use_signal(|| Option::<(u64, Option<u64>)>::None);
-    let progress_now = *progress.read();
-    let busy = progress_now.is_some();
+    // True through the whole AAB→APK pipeline, not just its download phase.
+    let mut converting = use_signal(|| false);
+    let progress_now = downloads.read().get(&name).copied();
+    let busy = progress_now.is_some() || converting();
 
     let (badge, family) = badge_of(&art);
     // While downloading, the type/size line becomes a live byte counter.
@@ -723,12 +734,14 @@ fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
 
     let art_dl = art.clone();
     let art_apk = art.clone();
+    let name_dl = name.clone();
+    let name_apk = name.clone();
     let client_dl = state.client();
     let client_apk = state.client();
 
     // The whole card is the download control.
     let download = move |_| {
-        if !has_url || progress.peek().is_some() {
+        if !has_url || *converting.peek() || downloads.peek().contains_key(&name_dl) {
             return;
         }
         let art = art_dl.clone();
@@ -742,32 +755,8 @@ fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
                 return;
             };
             let dest = handle.path().to_path_buf();
-            progress.set(Some((0, None)));
-            let result = async {
-                let url = art
-                    .url
-                    .clone()
-                    .ok_or_else(|| anyhow::anyhow!("Artifact has no download URL"))?;
-                let public_url = client.create_artifact_public_url(&url).await?;
-                if let Some(parent) = dest.parent() {
-                    std::fs::create_dir_all(parent)?;
-                }
-                // Re-render per chunk would be thousands of updates for a
-                // big artifact, so progress is only pushed every 256 KB.
-                let mut last = 0u64;
-                client
-                    .download_file_progress(&public_url, &dest, move |done, total| {
-                        if done - last >= 256 * 1024 {
-                            last = done;
-                            progress.set(Some((done, total)));
-                        }
-                    })
-                    .await
-            }
-            .await;
-            progress.set(None);
-            match result {
-                Ok(()) => dl_status.set(Some(format!("Saved to {}", dest.display()))),
+            match download_tracked(client, art, dest, downloads).await {
+                Ok(path) => dl_status.set(Some(format!("Saved to {}", path.display()))),
                 Err(e) => dl_status.set(Some(format!("Failed: {e}"))),
             }
         });
@@ -807,7 +796,11 @@ fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
                             // The whole card downloads on click; converting
                             // must not also trigger that.
                             e.stop_propagation();
+                            if *converting.peek() {
+                                return;
+                            }
                             let art = art_apk.clone();
+                            let key = name_apk.clone();
                             let client = client_apk.clone();
                             spawn(async move {
                                 let Some(handle) = rfd::AsyncFileDialog::new()
@@ -818,11 +811,36 @@ fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
                                     return;
                                 };
                                 let dest = handle.path().to_path_buf();
+                                converting.set(true);
                                 let status = dl_status;
+                                let mut map = downloads;
+                                // Status messages only arrive outside the AAB
+                                // transfer, so they clear the bar (post-download
+                                // phases have no meaningful percentage) and the
+                                // progress callback re-inserts it while bytes flow.
+                                let msg_key = key.clone();
+                                let bar_key = key.clone();
+                                let mut last = 0u64;
                                 let result = gantry_core::bundletool::convert_aab_to_apk(
                                     &client, &art, &dest,
-                                    move |m| { let mut s = status; s.set(Some(m)); },
+                                    move |m| {
+                                        let mut s = status;
+                                        let mut m2 = map;
+                                        m2.write().remove(&msg_key);
+                                        s.set(Some(m));
+                                    },
+                                    move |done, total| {
+                                        // First chunk draws the bar right away;
+                                        // after that, an update per 256 KB.
+                                        if last == 0 || done - last >= 256 * 1024 {
+                                            last = done;
+                                            let mut m2 = map;
+                                            m2.write().insert(bar_key.clone(), (done, total));
+                                        }
+                                    },
                                 ).await;
+                                map.write().remove(&key);
+                                converting.set(false);
                                 match result {
                                     Ok(path) => dl_status.set(Some(format!("APK saved to {}", path.display()))),
                                     Err(e) => dl_status.set(Some(format!("Conversion failed: {e}"))),
@@ -963,18 +981,43 @@ fn MetaItem(label: String, value: String) -> Element {
 // ─── Download helpers ────────────────────────────────────────────────────────
 
 /// Turns an authenticated artifact URL into a public one, then streams it to
-/// `dest` (creating parent directories as needed). Returns the path written.
-async fn download_to(client: ApiClient, art: Artefact, dest: PathBuf) -> anyhow::Result<PathBuf> {
-    let url = art
-        .url
-        .clone()
-        .ok_or_else(|| anyhow::anyhow!("Artifact has no download URL"))?;
-    let public_url = client.create_artifact_public_url(&url).await?;
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)?;
+/// `dest` (creating parent directories as needed), mirroring progress into
+/// `downloads` so the artifact's card shows a live bar for the duration.
+/// Returns the path written.
+async fn download_tracked(
+    client: ApiClient,
+    art: Artefact,
+    dest: PathBuf,
+    mut downloads: Signal<HashMap<String, (u64, Option<u64>)>>,
+) -> anyhow::Result<PathBuf> {
+    let name = art.display_name().to_string();
+    downloads.write().insert(name.clone(), (0, None));
+    let result = async {
+        let url = art
+            .url
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("Artifact has no download URL"))?;
+        let public_url = client.create_artifact_public_url(&url).await?;
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        // A re-render per chunk would be thousands of updates for a big
+        // artifact, so progress lands in the map every 256 KB.
+        let mut last = 0u64;
+        let key = name.clone();
+        client
+            .download_file_progress(&public_url, &dest, move |done, total| {
+                if done - last >= 256 * 1024 {
+                    last = done;
+                    let mut m = downloads;
+                    m.write().insert(key.clone(), (done, total));
+                }
+            })
+            .await
     }
-    client.download_file(&public_url, &dest).await?;
-    Ok(dest)
+    .await;
+    downloads.write().remove(&name);
+    result.map(|()| dest)
 }
 
 fn sanitize(name: &str) -> String {

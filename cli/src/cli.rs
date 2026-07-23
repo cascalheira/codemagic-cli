@@ -178,8 +178,25 @@ async fn find_latest_aab(
 /// Converts the AAB to a universal APK at `dest`, delegating to the shared
 /// `gantry-core` implementation and echoing progress to stderr.
 async fn download_and_convert(client: &ApiClient, aab: &Artefact, dest: &Path) -> Result<()> {
-    gantry_core::bundletool::convert_aab_to_apk(client, aab, dest, |msg| eprintln!("{msg}"))
-        .await?;
+    // A line per ~5 MB downloaded: shows life on a big AAB without
+    // flooding stderr.
+    let mut last = 0u64;
+    gantry_core::bundletool::convert_aab_to_apk(
+        client,
+        aab,
+        dest,
+        |msg| eprintln!("{msg}"),
+        move |done, total| {
+            if done - last >= 5 * 1024 * 1024 {
+                last = done;
+                match total {
+                    Some(t) => eprintln!("  {:.0}%", done as f64 / t as f64 * 100.0),
+                    None => eprintln!("  {:.1} MB", done as f64 / 1_048_576.0),
+                }
+            }
+        },
+    )
+    .await?;
     Ok(())
 }
 
