@@ -25,10 +25,9 @@
   --hover: rgba(0, 0, 0, 0.055);
   --sel: rgba(0, 0, 0, 0.075);
 
-  --btn-bg: linear-gradient(180deg, #ffffff, #f6f6f7);
-  --btn-bg-hover: linear-gradient(180deg, #ffffff, #ededee);
-  --btn-border: rgba(0, 0, 0, 0.16);
-  --btn-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  --btn-bg: rgba(0, 0, 0, 0.045);
+  --btn-bg-hover: rgba(0, 0, 0, 0.085);
+  --btn-border: rgba(0, 0, 0, 0.10);
 
   --ok: #30a94a;
   --run: #d98a00;
@@ -51,10 +50,9 @@
     --hover: rgba(255, 255, 255, 0.07);
     --sel: rgba(255, 255, 255, 0.10);
 
-    --btn-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.075));
-    --btn-bg-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.10));
-    --btn-border: rgba(255, 255, 255, 0.14);
-    --btn-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+    --btn-bg: rgba(255, 255, 255, 0.075);
+    --btn-bg-hover: rgba(255, 255, 255, 0.13);
+    --btn-border: rgba(255, 255, 255, 0.10);
 
     --ok: #32c759;
     --run: #ffb340;
@@ -118,7 +116,6 @@ button:active:not(:disabled) { filter: brightness(0.96); }
   background: var(--btn-bg);
   color: var(--text);
   border: 1px solid var(--btn-border);
-  box-shadow: var(--btn-shadow);
 }
 .ghost:hover:not(:disabled) { background: var(--btn-bg-hover); }
 
@@ -129,11 +126,10 @@ button:active:not(:disabled) { filter: brightness(0.96); }
   gap: 0.34rem;
   padding: 3px 13px;
   color: #fff;
-  border: 1px solid color-mix(in srgb, var(--accent) 78%, #000);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, #fff), var(--accent));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border: 1px solid transparent;
+  background: var(--accent);
 }
-.primary:hover:not(:disabled) { filter: brightness(1.05); }
+.primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 .danger {
   display: inline-flex;
@@ -143,7 +139,6 @@ button:active:not(:disabled) { filter: brightness(0.96); }
   color: var(--danger);
   background: var(--btn-bg);
   border: 1px solid var(--btn-border);
-  box-shadow: var(--btn-shadow);
 }
 .danger:hover:not(:disabled) { background: var(--btn-bg-hover); }
 
@@ -222,7 +217,7 @@ input:focus, select:focus, .token-input:focus {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: calc(var(--titlebar) + 10px) 0.7rem 0.55rem;
+  padding: calc(var(--titlebar) + 4px) 0.7rem 0.5rem;
 }
 .topbar h1 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .actions { display: flex; gap: 0.28rem; align-items: center; }
@@ -369,11 +364,11 @@ input:focus, select:focus, .token-input:focus {
   min-width: 0;
   overflow-y: auto;
   background: var(--content-bg);
-  padding: calc(var(--titlebar) + 18px) clamp(1.1rem, 2.2vw, 2rem) 2.5rem;
+  padding: calc(var(--titlebar) + 4px) clamp(1.1rem, 2.2vw, 2rem) 2.5rem;
 }
-.detail-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1.4rem; }
+.detail-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1.1rem; }
 .detail-head-main { flex: 1; min-width: 0; }
-.detail-head h2 { margin: 0 0 0.1rem; font-size: 1.35rem; letter-spacing: -0.02em; }
+.detail-head h2 { margin: 0 0 0.1rem; font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
 .detail-head p { margin: 0; font-size: 12px; }
 
 .meta {
@@ -442,7 +437,7 @@ input:focus, select:focus, .token-input:focus {
   background: var(--sidebar-bg);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   backdrop-filter: blur(20px) saturate(150%);
-  padding: calc(var(--titlebar) + 14px) 0.85rem 1.5rem;
+  padding: calc(var(--titlebar) + 4px) 0.85rem 1.5rem;
 }
 .rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
 .rail-head h3 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
@@ -452,8 +447,8 @@ input:focus, select:focus, .token-input:focus {
 .artifact-main { min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
 .artifact-name { font-weight: 600; font-size: 12.5px; word-break: break-word; }
 .artifact-main .muted { font-size: 11px; }
-.artifact-actions { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.6rem; }
-.artifact-actions button { width: 100%; }
+.artifact-actions { display: flex; gap: 0.35rem; margin-top: 0.6rem; }
+.artifact-actions button { flex: 1; justify-content: center; }
 .dl-status { margin-top: 0.85rem; font-size: 11.5px; color: var(--muted); word-break: break-word; }
 
 /* ── Modals (native panels / sheets) ────────────────────── */
@@ -599,3 +594,26 @@ input:focus, select:focus, .token-input:focus {
   .layout:has(.detail) .sidebar { display: none; }
   .layout:has(.detail) .detail-pane { flex: 1 1 100%; }
 }
+
+/* ── Window resize edges ────────────────────────────────────
+   The webview covers the window's own resize margin, so these strips supply
+   both the cursor and the drag. They sit above everything, including the
+   drag strip, so the corners win over the titlebar. */
+.resize-handle { position: fixed; z-index: 100; }
+.resize-n { top: 0; left: 0; right: 0; height: 4px; cursor: ns-resize; }
+.resize-s { bottom: 0; left: 0; right: 0; height: 4px; cursor: ns-resize; }
+.resize-w { top: 0; bottom: 0; left: 0; width: 4px; cursor: ew-resize; }
+.resize-e { top: 0; bottom: 0; right: 0; width: 4px; cursor: ew-resize; }
+.resize-nw, .resize-ne, .resize-sw, .resize-se { width: 12px; height: 12px; z-index: 101; }
+.resize-nw { top: 0; left: 0; cursor: nwse-resize; }
+.resize-se { bottom: 0; right: 0; cursor: nwse-resize; }
+.resize-ne { top: 0; right: 0; cursor: nesw-resize; }
+.resize-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+
+/* Owns the pointer for the duration of a drag, so tracking survives the
+   cursor outrunning the 4px strip. Inherits the strip's cursor by class. */
+.resize-capture { position: fixed; inset: 0; z-index: 200; }
+.resize-capture.n, .resize-capture.s { cursor: ns-resize; }
+.resize-capture.e, .resize-capture.w { cursor: ew-resize; }
+.resize-capture.nw, .resize-capture.se { cursor: nwse-resize; }
+.resize-capture.ne, .resize-capture.sw { cursor: nesw-resize; }

@@ -560,7 +560,7 @@ fn ArtifactCard(art: Artefact, dl_status: Signal<Option<String>>) -> Element {
             }
             div { class: "artifact-actions",
                 button {
-                    class: "primary small",
+                    class: "ghost small",
                     disabled: !has_url,
                     onclick: move |_| {
                         let art = art_dl.clone();

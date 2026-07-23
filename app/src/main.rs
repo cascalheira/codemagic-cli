@@ -13,7 +13,7 @@ mod menu;
 mod notify;
 mod state;
 
-use components::{BuildsScreen, Onboarding};
+use components::{BuildsScreen, Onboarding, ResizeHandles};
 use state::AppState;
 
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -85,6 +85,7 @@ fn App() -> Element {
         main { class: if vibrant() { "app vibrant" } else { "app" },
             // Full-width strip under the traffic lights that drags the window.
             div { class: "drag-strip", onmousedown: move |_| start_drag() }
+            ResizeHandles {}
             if state.has_token() {
                 BuildsScreen {}
             } else {
