@@ -267,6 +267,33 @@ input:focus, select:focus, .token-input:focus {
 .build-row:hover + .build-row::after, .build-row.selected + .build-row::after { display: none; }
 
 /* Bottom toolbar */
+/* Workflow filter above the build list. */
+.filter-bar {
+  padding: 0.3rem 0.7rem 0.45rem;
+  border-bottom: 1px solid var(--sep);
+}
+.wf-filter {
+  width: 100%;
+  appearance: none;
+  padding: 0.28rem 1.5rem 0.28rem 0.5rem;
+  border: 1px solid var(--sep);
+  border-radius: 6px;
+  background: var(--field-bg, transparent);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  /* Native-looking disclosure chevron. */
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%238a8a8e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.45rem center;
+  background-size: 11px;
+}
+.wf-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
 /* Infinite-scroll sentinel at the bottom of the build list: scrolling it into
    view loads the next page, and it spins while that page is in flight. */
 .list-end {

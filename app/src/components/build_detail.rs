@@ -16,7 +16,7 @@ use dioxus::prelude::*;
 const POLL_SECS: u64 = 5;
 
 use super::builds_screen::status_class;
-use super::icons::{ChevronIcon, DownloadIcon, StopIcon};
+use super::icons::{ChevronIcon, DownloadIcon, ExternalLinkIcon, StopIcon};
 use crate::state::AppState;
 
 #[component]
@@ -45,13 +45,22 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
     let mut failed = use_signal(|| Option::<(String, String)>::None);
 
     use_effect(move || {
+        // Extract owned data and drop every read guard *before* writing back:
+        // holding one across a signal write deadlocks the reactive flush.
+        // (`anyhow::Error` isn't Clone, so the error is flattened to a String.)
+        let outcome = match &*detail.read() {
+            Some(Some(Ok(resp))) => Some(Ok(resp.clone())),
+            Some(Some(Err(e))) => Some(Err(e.to_string())),
+            _ => None,
+        };
         let sel = selected.read().clone();
-        match (&*detail.read(), sel) {
-            (Some(Some(Ok(resp))), _) => {
-                cached.set(Some((resp.build.id.clone(), resp.clone())));
+
+        match (outcome, sel) {
+            (Some(Ok(resp)), _) => {
+                cached.set(Some((resp.build.id.clone(), resp)));
                 failed.set(None);
             }
-            (Some(Some(Err(e))), Some(id)) => failed.set(Some((id, e.to_string()))),
+            (Some(Err(msg)), Some(id)) => failed.set(Some((id, msg))),
             _ => {}
         }
     });
@@ -80,13 +89,16 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
         };
     };
 
-    let view = cached.read();
+    // Snapshot into an owned value: holding a `read()` guard across `rsx!`
+    // keeps it borrowed through the reactive flush, and the 5s poll below
+    // writes this same signal — that combination deadlocks the app.
+    let view: Option<(String, BuildDetailResponse)> = cached.read().clone();
     let resp = match view.as_ref() {
         Some((id, resp)) if *id == sel_id => resp,
         // Nothing cached for this selection yet — show its error, or loading.
         _ => {
-            let err = failed.read();
-            let msg = err
+            let msg = failed
+                .read()
                 .as_ref()
                 .and_then(|(id, m)| (*id == sel_id).then(|| m.clone()));
             return match msg {
@@ -116,6 +128,10 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
     let has_downloads = build.artefacts.iter().any(|a| a.url.is_some());
     let cancellable = is_cancellable(&build.status);
     let build_id = build.id.clone();
+    // Owned copies: a live read guard inside `rsx!` can deadlock against a
+    // concurrent signal write (the async download/cancel tasks write these).
+    let cancel_msg: Option<String> = cancel_status.read().clone();
+    let dl_msg: Option<String> = dl_status.read().clone();
 
     rsx! {
         div { class: "detail-body",
@@ -126,6 +142,17 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                     div { class: "detail-head-main",
                         h2 { "{app_name}" }
                         p { class: "muted", "{build.workflow_display()}  ·  {build.git_ref()}  {number}" }
+                    }
+                    {
+                        let url = codemagic_core::web::build_url(&build.app_id, &build.id);
+                        rsx! {
+                            button {
+                                class: "ghost icon-btn",
+                                title: "Open in Codemagic",
+                                onclick: move |_| codemagic_core::web::open_in_browser(&url),
+                                ExternalLinkIcon {}
+                            }
+                        }
                     }
                     if cancellable {
                         {
@@ -154,7 +181,7 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                         }
                     }
                 }
-                if let Some(msg) = &*cancel_status.read() {
+                if let Some(msg) = cancel_msg.as_ref() {
                     p { class: "dl-status", "{msg}" }
                 }
 
@@ -243,7 +270,7 @@ pub fn BuildDetail(selected: Signal<Option<String>>) -> Element {
                     }
                 }
 
-                if let Some(msg) = &*dl_status.read() {
+                if let Some(msg) = dl_msg.as_ref() {
                     p { class: "dl-status", "{msg}" }
                 }
             }
@@ -292,6 +319,10 @@ fn StepAccordion(
         }
     };
 
+    // Owned copy: the log is written by a spawned task, so holding a read
+    // guard across `rsx!` risks deadlocking the reactive flush.
+    let log_state = log.read().clone();
+
     rsx! {
         li { class: if expanded() { "step-row open" } else { "step-row" },
             div { class: "step-head", onclick: toggle,
@@ -302,7 +333,7 @@ fn StepAccordion(
             }
             if expanded() {
                 div { class: "step-log",
-                    match &*log.read() {
+                    match &log_state {
                         LogState::Idle | LogState::Loading => rsx! { p { class: "muted log-note", "Loading log…" } },
                         LogState::Loaded(t) => rsx! { pre { class: "log", "{t}" } },
                         LogState::Failed(e) => rsx! { p { class: "error log-note", "{e}" } },

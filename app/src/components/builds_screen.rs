@@ -31,8 +31,13 @@ pub fn BuildsScreen() -> Element {
     let mut new_build_open = use_signal(|| false);
     let mut settings_open = use_signal(|| false);
     let mut refreshing = use_signal(|| false);
-    // How many pages of `PAGE_SIZE` builds to load. "Load more" bumps this.
+    // How many pages to load; reaching the bottom of the list bumps this.
     let mut pages = use_signal(|| 1usize);
+    // Optional workflow id to restrict the list to.
+    let mut workflow_filter = use_signal(|| Option::<String>::None);
+    // Every workflow seen so far, as (id, display name). Only ever grows, so
+    // filtering to one workflow can't shrink the set of choices offered.
+    let mut known_workflows = use_signal(Vec::<(String, String)>::new);
 
     // Fetches every loaded page in sequence and concatenates them. Refetching
     // all of them (rather than appending) keeps the list consistent as new
@@ -40,6 +45,7 @@ pub fn BuildsScreen() -> Element {
     let mut builds = use_resource(move || {
         let client = state.client();
         let n = pages();
+        let wf = workflow_filter();
         async move {
             let mut all: Vec<Build> = Vec::new();
             let mut seen: HashSet<String> = HashSet::new();
@@ -48,7 +54,7 @@ pub fn BuildsScreen() -> Element {
             for _ in 0..n {
                 // `skip` is the number of builds held so far, not page * size:
                 // the API can return more than PAGE_SIZE per response.
-                let resp = client.get_builds(all.len(), None, None).await?;
+                let resp = client.get_builds(all.len(), wf.as_deref(), None).await?;
                 for a in &resp.applications {
                     names.insert(a.id.clone(), a.name.clone());
                 }
@@ -77,13 +83,31 @@ pub fn BuildsScreen() -> Element {
     // Last good list, so refreshing or loading more never blanks the sidebar.
     let mut cached = use_signal(|| Option::<BuildPage>::None);
 
-    // Clear the spinner once a (re)fetch resolves, and keep the cache current.
+    // Clear the spinner once a (re)fetch resolves, keep the cache current, and
+    // fold any newly seen workflows into the filter choices.
     use_effect(move || {
-        if let Some(result) = &*builds.read() {
-            if let Ok(page) = result {
-                cached.set(Some(page.clone()));
-            }
-            refreshing.set(false);
+        // Snapshot first so no borrow is held while writing back to signals.
+        let resolved = builds
+            .read()
+            .as_ref()
+            .map(|result| result.as_ref().ok().cloned());
+        let Some(page) = resolved else { return };
+        refreshing.set(false);
+        let Some(page) = page else { return };
+
+        let mut seen: HashSet<String> =
+            known_workflows.read().iter().map(|(id, _)| id.clone()).collect();
+        let fresh: Vec<(String, String)> = page
+            .builds
+            .iter()
+            .filter_map(|b| b.effective_workflow_id().map(|id| (id.to_string(), b)))
+            .filter(|(id, _)| seen.insert(id.clone()))
+            .map(|(id, b)| (id, b.workflow_display().to_string()))
+            .collect();
+
+        cached.set(Some(page));
+        if !fresh.is_empty() {
+            known_workflows.write().extend(fresh);
         }
     });
 
@@ -100,6 +124,17 @@ pub fn BuildsScreen() -> Element {
             builds.restart();
         }
     });
+
+    // Snapshot signal state into owned locals. Holding a `read()` guard alive
+    // inside `rsx!` keeps it borrowed across the reactive flush, which
+    // deadlocks the app as soon as an effect writes the same signal.
+    let workflows: Vec<(String, String)> = known_workflows.read().clone();
+    let current_filter = workflow_filter().unwrap_or_default();
+    let page_snapshot: Option<BuildPage> = cached.read().clone();
+    let load_error: Option<String> = builds
+        .read()
+        .as_ref()
+        .and_then(|r| r.as_ref().err().map(|e| e.to_string()));
 
     let spinning = refreshing() || loading;
 
@@ -123,18 +158,38 @@ pub fn BuildsScreen() -> Element {
                         }
                     }
                 }
+                if !workflows.is_empty() {
+                    div { class: "filter-bar",
+                        select {
+                            class: "wf-filter",
+                            value: "{current_filter}",
+                            onchange: move |e| {
+                                let v = e.value();
+                                workflow_filter.set((!v.is_empty()).then_some(v));
+                                // Restart paging, and drop the old list so the
+                                // sidebar can't briefly show unfiltered builds.
+                                pages.set(1);
+                                cached.set(None);
+                            },
+                            option { value: "", "All workflows" }
+                            for (id, name) in workflows.iter() {
+                                option { key: "{id}", value: "{id}", "{name}" }
+                            }
+                        }
+                    }
+                }
                 div { class: "sidebar-list",
-                    match cached.read().as_ref() {
+                    match page_snapshot.as_ref() {
                         // Nothing loaded yet: show the first error, or loading.
-                        None => match &*builds.read() {
-                            Some(Err(e)) => rsx! {
+                        None => match load_error.as_ref() {
+                            Some(e) => rsx! {
                                 div { class: "error-box",
                                     p { "Couldn't load builds." }
                                     p { class: "muted", "{e}" }
                                     button { class: "ghost", onclick: move |_| builds.restart(), "Retry" }
                                 }
                             },
-                            _ => rsx! { p { class: "muted center", "Loading builds…" } },
+                            None => rsx! { p { class: "muted center", "Loading builds…" } },
                         },
                         Some(page) if page.builds.is_empty() => {
                             rsx! { p { class: "muted center", "No builds yet." } }

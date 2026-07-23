@@ -69,18 +69,8 @@ impl App {
         let Some(build) = self.builds.get(self.selected_index) else {
             return;
         };
-        let url = format!(
-            "https://codemagic.io/app/{}/build/{}",
-            build.app_id, build.id
-        );
-        #[cfg(target_os = "macos")]
-        let _ = std::process::Command::new("open").arg(&url).spawn();
-        #[cfg(target_os = "linux")]
-        let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
-        #[cfg(target_os = "windows")]
-        let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", &url])
-            .spawn();
+        let url = codemagic_core::web::build_url(&build.app_id, &build.id);
+        codemagic_core::web::open_in_browser(&url);
     }
 
     pub(crate) fn open_filter_popup(&mut self) {
